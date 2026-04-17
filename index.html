@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiro Arcade</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      border: 2px solid #790ECB;
+      border-radius: 8px;
+      box-shadow: 0 0 30px rgba(121, 14, 203, 0.3);
+      max-height: 90vh;
+      width: auto;
+    }
+    #webcam-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 400px;
+      height: 300px;
+      border: 2px solid #790ECB;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(121, 14, 203, 0.4);
+      z-index: 10;
+    }
+    #webcam {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    #hand-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      transform: scaleX(-1);
+    }
+    #hand-status {
+      position: fixed;
+      bottom: 325px;
+      right: 20px;
+      color: #c0c0c0;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 13px;
+      text-align: center;
+      width: 400px;
+      z-index: 10;
+    }
+    #lang-select {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background: rgba(121,14,203,0.3);
+      color: #fff;
+      border: 1px solid #790ECB;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: 'Segoe UI', sans-serif;
+      cursor: pointer;
+      z-index: 10;
+    }
+    #lang-select:hover { background: rgba(121,14,203,0.6); }
+    #lang-select option { background: #1a0a2e; color: #fff; }
+
+    /* Player name input overlay on home screen */
+    #player-name-wrap {
+      position: fixed;
+      /* positioned dynamically by JS */
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      display: none;
+    }
+    #player-name-input {
+      background: rgba(13,13,26,0.92);
+      border: 2px solid #790ECB;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 18px;
+      font-family: 'Segoe UI', sans-serif;
+      padding: 10px 18px;
+      width: 260px;
+      text-align: center;
+      outline: none;
+      box-shadow: 0 0 16px rgba(121,14,203,0.35);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #player-name-input::placeholder { color: rgba(255,255,255,0.3); }
+    #player-name-input:focus {
+      border-color: #c084fc;
+      box-shadow: 0 0 24px rgba(192,132,252,0.45);
+    }
+
+    /* Modal Aprende Kiro */
+    #learn-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(6px);
+    }
+    #learn-modal.open { display: flex; }
+    #learn-box {
+      background: linear-gradient(160deg, #0d0d1a 0%, #1a0a2e 100%);
+      border: 2px solid #790ECB;
+      border-radius: 16px;
+      box-shadow: 0 0 40px rgba(121,14,203,0.5);
+      width: min(1100px, 96vw);
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 40px 52px;
+      position: relative;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    #learn-box::-webkit-scrollbar { width: 6px; }
+    #learn-box::-webkit-scrollbar-track { background: transparent; }
+    #learn-box::-webkit-scrollbar-thumb { background: #790ECB; border-radius: 3px; }
+    #learn-close {
+      position: absolute;
+      top: 16px; right: 20px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.5);
+      font-size: 28px;
+      cursor: pointer;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    #learn-close:hover { color: #fff; }
+    #learn-box h2 {
+      font-size: 28px;
+      color: #790ECB;
+      margin-bottom: 6px;
+      text-shadow: 0 0 20px rgba(121,14,203,0.6);
+    }
+    #learn-box .subtitle {
+      color: rgba(255,255,255,0.5);
+      font-size: 15px;
+      margin-bottom: 28px;
+    }
+    #learn-box h3 {
+      font-size: 16px;
+      color: #c084fc;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 24px 0 12px;
+    }
+    #learn-box p {
+      color: rgba(255,255,255,0.75);
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    #learn-box ul {
+      color: rgba(255,255,255,0.75);
+      font-size: 15px;
+      line-height: 1.8;
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+    .video-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    .qr-section {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      background: rgba(121,14,203,0.1);
+      border: 1px solid rgba(121,14,203,0.3);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-top: 8px;
+    }
+    .qr-section canvas { border-radius: 8px; flex-shrink: 0; }
+    .qr-section .qr-text h4 { font-size: 17px; margin-bottom: 6px; color: #fff; }
+    .qr-section .qr-text p { font-size: 14px; color: rgba(255,255,255,0.55); margin: 0; }
+    .qr-section .qr-text a { color: #c084fc; text-decoration: none; }
+    .qr-section .qr-text a:hover { text-decoration: underline; }
+    /* Tabs */
+    .learn-tabs {
+      display: flex;
+      gap: 8px;
+      margin: 20px 0 24px;
+      border-bottom: 1px solid rgba(121,14,203,0.3);
+      padding-bottom: 0;
+    }
+    .learn-tab {
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: rgba(255,255,255,0.45);
+      font-size: 16px;
+      font-family: 'Segoe UI', sans-serif;
+      font-weight: 600;
+      padding: 10px 22px 12px;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      margin-bottom: -1px;
+    }
+    .learn-tab:hover { color: rgba(255,255,255,0.8); }
+    .learn-tab.active { color: #c084fc; border-bottom-color: #790ECB; }
+    .learn-panel { display: none; }
+    .learn-panel.active { display: block; }
+    /* Demo steps */
+    .demo-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(121,14,203,0.25);
+      border-radius: 14px;
+      padding: 22px 26px;
+      margin-bottom: 16px;
+    }
+    .demo-card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+    .demo-badge {
+      background: rgba(121,14,203,0.35);
+      border: 1px solid #790ECB;
+      border-radius: 8px;
+      color: #c084fc;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 3px 10px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .demo-card h4 {
+      color: #fff;
+      font-size: 17px;
+      margin: 0;
+    }
+    .demo-card p {
+      color: rgba(255,255,255,0.6);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 0 14px;
+    }
+    .demo-prompt {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(121,14,203,0.4);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #e2c4ff;
+      line-height: 1.5;
+      margin-bottom: 14px;
+      position: relative;
+    }
+    .demo-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .demo-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      font-family: 'Segoe UI', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .demo-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .demo-btn:active { transform: translateY(0); }
+    .demo-btn.primary { background: #790ECB; color: #fff; }
+    .demo-btn.secondary { background: rgba(121,14,203,0.2); color: #c084fc; border: 1px solid rgba(121,14,203,0.5); }
+    .demo-btn.copy { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15); }
+    .demo-btn.copy.copied { background: rgba(0,255,136,0.15); color: #00ff88; border-color: #00ff88; }
+    .demo-steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .demo-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      color: rgba(255,255,255,0.65);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .demo-step-num {
+      background: rgba(121,14,203,0.4);
+      color: #c084fc;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+  </style>
+</head>
+<body>
+  <select id="lang-select">
+    <option value="es">🇪🇸 Español</option>
+    <option value="en">🇬🇧 English</option>
+  </select>
+
+  <!-- Player name input (shown on home screen) -->
+  <div id="player-name-wrap">
+    <input id="player-name-input" type="text" maxlength="20" autocomplete="off" spellcheck="false" />
+  </div>
+  <canvas id="menu" width="800" height="1000"></canvas>
+  <div id="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="hand-overlay"></canvas>
+  </div>
+  <div id="hand-status">🖐️ Cargando cámara...</div>
+
+  <!-- Modal: Aprende Kiro -->
+  <div id="learn-modal">
+    <div id="learn-box">
+      <button id="learn-close" aria-label="Cerrar">✕</button>
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:4px;">
+        <img src="images/kiro-logo.png" alt="Kiro logo" style="width:52px;height:52px;border-radius:50%;border:2px solid #790ECB;box-shadow:0 0 14px rgba(121,14,203,0.5);flex-shrink:0;" onerror="this.style.display='none'">
+        <div>
+          <h2 style="margin-bottom:2px;">✨ Aprende Kiro</h2>
+          <p class="subtitle" id="learn-subtitle" style="margin:0;">Tu IDE con IA para construir más rápido</p>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="learn-tabs">
+        <button class="learn-tab active" data-tab="intro" id="tab-intro">📖 Intro</button>
+        <button class="learn-tab" data-tab="demo" id="tab-demo">🚀 Demo Guiada</button>
+        <button class="learn-tab" data-tab="play" id="tab-play">🎮 Aprende Jugando</button>
+      </div>
+
+      <!-- Panel: Intro -->
+      <div class="learn-panel active" id="panel-intro">
+        <h3 id="learn-what-title">¿Qué es Kiro?</h3>
+        <p id="learn-what-text">Kiro es un IDE potenciado por IA diseñado para desarrolladores. Combina un editor de código inteligente con un agente de IA que entiende tu proyecto, genera código, escribe tests y te ayuda a iterar más rápido que nunca.</p>
+
+        <h3 id="learn-how-title">¿Cómo funciona?</h3>
+        <ul id="learn-how-list">
+          <li><strong>Specs</strong> — Define requisitos en lenguaje natural y Kiro genera el plan de implementación.</li>
+          <li><strong>Hooks</strong> — Automatiza acciones del agente cuando ocurren eventos en el IDE.</li>
+          <li><strong>Steering</strong> — Guía al agente con reglas y contexto específico de tu proyecto.</li>
+          <li><strong>Autopilot</strong> — Deja que Kiro implemente cambios de forma autónoma mientras tú supervisas.</li>
+        </ul>
+
+        <h3 id="learn-videos-title">Videos</h3>
+        <div class="video-grid">
+          <div>
+            <p style="color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:6px;">Kiro Specs</p>
+            <video controls style="width:100%;border-radius:10px;border:1px solid rgba(121,14,203,0.4);background:#000;">
+              <source src="videos/kiro-specs.mov" type="video/mp4">
+            </video>
+          </div>
+          <div>
+            <p style="color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:6px;">Kiro Vibe</p>
+            <video controls style="width:100%;border-radius:10px;border:1px solid rgba(121,14,203,0.4);background:#000;">
+              <source src="videos/kiro-vibe.mov" type="video/mp4">
+            </video>
+          </div>
+        </div>
+
+        <h3 id="learn-qr-title">Visita Kiro</h3>
+        <div class="qr-section">
+          <canvas id="qr-canvas" width="120" height="120"></canvas>
+          <div class="qr-text">
+            <h4 id="learn-qr-heading">Escanea para abrir Kiro</h4>
+            <p id="learn-qr-desc">Accede a la web oficial, documentación y descarga el IDE.<br>
+              <a href="https://kiro.dev" target="_blank" rel="noopener">kiro.dev →</a>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel: Demo Guiada -->
+      <div class="learn-panel" id="panel-demo">
+        <p style="color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:20px;" id="demo-intro-text">
+          Sigue estos dos ejercicios para experimentar el poder de Kiro. Abre Kiro, copia el prompt y observa cómo la IA construye por ti.
+        </p>
+
+        <!-- Demo 1: Vibe Coding -->
+        <div class="demo-card">
+          <div class="demo-card-header">
+            <span class="demo-badge">⚡ Vibe Coding</span>
+            <h4 id="demo1-title">Crea una app desde cero</h4>
+          </div>
+          <p id="demo1-desc">Describe lo que quieres construir en lenguaje natural. Kiro generará toda la estructura, el código y los archivos necesarios automáticamente.</p>
+          <div class="demo-prompt" id="demo1-prompt">Crea una app simple para subir documentos PDF y generar resúmenes automáticos con IA. Debe tener una interfaz web con drag &amp; drop, mostrar el resumen en pantalla y permitir descargarlo como texto.</div>
+          <div class="demo-steps-list" id="demo1-steps">
+            <div class="demo-step"><div class="demo-step-num">1</div><span>Abre Kiro y crea una carpeta de proyecto vacía</span></div>
+            <div class="demo-step"><div class="demo-step-num">2</div><span>Abre el chat de Kiro (panel lateral)</span></div>
+            <div class="demo-step"><div class="demo-step-num">3</div><span>Pega el prompt y pulsa Enter</span></div>
+            <div class="demo-step"><div class="demo-step-num">4</div><span>Observa cómo Kiro genera los archivos en tiempo real</span></div>
+          </div>
+          <div class="demo-actions" style="margin-top:16px;">
+            <button class="demo-btn primary" onclick="openKiro()">🚀 Abrir Kiro</button>
+            <button class="demo-btn copy" id="copy-demo1" onclick="copyPrompt('demo1-prompt','copy-demo1')">📋 Copiar prompt</button>
+          </div>
+        </div>
+
+        <!-- Demo 2: Spec -->
+        <div class="demo-card">
+          <div class="demo-card-header">
+            <span class="demo-badge" style="background:rgba(255,221,68,0.15);border-color:#ffdd44;color:#ffdd44;">📋 Spec</span>
+            <h4 id="demo2-title">Añade una feature con Spec</h4>
+          </div>
+          <p id="demo2-desc">Los Specs permiten planificar e implementar features de forma estructurada. Kiro genera requisitos, diseño y tareas antes de escribir una sola línea de código.</p>
+          <div class="demo-prompt" id="demo2-prompt">Usando Kiro Specs, añade autenticación de usuarios a la app existente. Necesito registro con email/contraseña, login, logout y que solo los usuarios autenticados puedan subir documentos.</div>
+          <div class="demo-steps-list" id="demo2-steps">
+            <div class="demo-step"><div class="demo-step-num">1</div><span>En Kiro, abre el panel de Specs (icono 📋 en la barra lateral)</span></div>
+            <div class="demo-step"><div class="demo-step-num">2</div><span>Crea un nuevo Spec y pega el prompt</span></div>
+            <div class="demo-step"><div class="demo-step-num">3</div><span>Revisa los requisitos que Kiro genera y apruébalos</span></div>
+            <div class="demo-step"><div class="demo-step-num">4</div><span>Activa Autopilot y deja que Kiro implemente las tareas</span></div>
+          </div>
+          <div class="demo-actions" style="margin-top:16px;">
+            <button class="demo-btn primary" onclick="openKiro()">🚀 Abrir Kiro</button>
+            <button class="demo-btn copy" id="copy-demo2" onclick="copyPrompt('demo2-prompt','copy-demo2')">📋 Copiar prompt</button>
+          </div>
+        </div>
+
+        <!-- Tip -->
+        <div style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);border-radius:10px;padding:14px 18px;margin-top:4px;">
+          <p style="margin:0;font-size:13px;color:rgba(0,255,136,0.8);" id="demo-tip-text">
+            💡 <strong>Tip:</strong> Si Kiro no se abre automáticamente, descárgalo en <a href="https://kiro.dev" target="_blank" style="color:#00ff88;">kiro.dev</a> e instálalo primero.
+          </p>
+        </div>
+      </div>
+
+      <!-- Panel: Aprende Jugando -->
+      <div class="learn-panel" id="panel-play">
+
+        <!-- QR arriba -->
+        <div class="qr-section" style="margin-bottom:20px;">
+          <canvas id="qr-play-canvas" width="120" height="120"></canvas>
+          <div class="qr-text">
+            <h4>Escanea para abrir la guía</h4>
+            <p>Accede al tutorial completo "Learn by Playing" desde tu móvil.<br>
+              <a href="https://kiro.dev/docs/guides/learn-by-playing/" target="_blank" rel="noopener">kiro.dev/docs/guides/learn-by-playing →</a>
+            </p>
+          </div>
+        </div>
+
+        <p style="color:rgba(255,255,255,0.55);font-size:14px;margin-bottom:6px;">
+          Aprende Kiro completando tareas reales en <strong style="color:#c084fc;">Spirit of Kiro</strong>, un videojuego open source construido 95% con Kiro. Arregla bugs, añade features y descubre el poder del IDE en acción.
+        </p>
+        <div style="margin-bottom:20px;">
+          <a href="https://github.com/kirodotdev/spirit-of-kiro" target="_blank" rel="noopener"
+             style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 16px;color:rgba(255,255,255,0.7);font-size:13px;text-decoration:none;">
+            🔗 github.com/kirodotdev/spirit-of-kiro
+          </a>
+        </div>
+
+        <!-- Steps -->
+        <div style="display:flex;flex-direction:column;gap:12px;">
+
+          <div class="demo-card" style="padding:16px 20px;">
+            <div class="demo-card-header" style="margin-bottom:6px;">
+              <span class="demo-badge" style="background:rgba(0,200,255,0.12);border-color:rgba(0,200,255,0.5);color:#7dd3fc;">1 · Setup</span>
+              <h4 style="font-size:15px;">Configura el entorno y lanza el juego</h4>
+            </div>
+            <p style="font-size:13px;margin-bottom:10px;">Crea una cuenta AWS, lanza el stack con Docker Compose y verifica que el juego corre en local.</p>
+            <a href="https://kiro.dev/docs/guides/learn-by-playing/00-setup" target="_blank" rel="noopener" class="demo-btn secondary" style="font-size:13px;text-decoration:none;">Ver guía →</a>
+          </div>
+
+          <div class="demo-card" style="padding:16px 20px;">
+            <div class="demo-card-header" style="margin-bottom:6px;">
+              <span class="demo-badge" style="background:rgba(121,14,203,0.25);border-color:#790ECB;color:#c084fc;">2 · Steering</span>
+              <h4 style="font-size:15px;">Mejora la homepage del juego</h4>
+            </div>
+            <p style="font-size:13px;margin-bottom:10px;">Configura Steering files para que Kiro entienda el proyecto y mejora la landing page del juego.</p>
+            <a href="https://kiro.dev/docs/guides/learn-by-playing/01-improve-the-homepage" target="_blank" rel="noopener" class="demo-btn secondary" style="font-size:13px;text-decoration:none;">Ver guía →</a>
+          </div>
+
+          <div class="demo-card" style="padding:16px 20px;">
+            <div class="demo-card-header" style="margin-bottom:6px;">
+              <span class="demo-badge" style="background:rgba(255,68,68,0.15);border-color:#ff4444;color:#fca5a5;">3 · Bug Fix</span>
+              <h4 style="font-size:15px;">Arregla el glitch de física</h4>
+            </div>
+            <p style="font-size:13px;margin-bottom:10px;">Al cambiar de pestaña la física se vuelve loca. ¿Puede Kiro encontrar y arreglar este bug sutil?</p>
+            <a href="https://kiro.dev/docs/guides/learn-by-playing/02-physics-bug" target="_blank" rel="noopener" class="demo-btn secondary" style="font-size:13px;text-decoration:none;">Ver guía →</a>
+          </div>
+
+          <div class="demo-card" style="padding:16px 20px;">
+            <div class="demo-card-header" style="margin-bottom:6px;">
+              <span class="demo-badge" style="background:rgba(255,68,68,0.15);border-color:#ff4444;color:#fca5a5;">4 · Bug Fix</span>
+              <h4 style="font-size:15px;">Corrige un error en las interacciones</h4>
+            </div>
+            <p style="font-size:13px;margin-bottom:10px;">El sistema de interacciones fue "vibe coded" y la IA se olvidó algo. Kiro corrige su propio error.</p>
+            <a href="https://kiro.dev/docs/guides/learn-by-playing/03-interactions-bug" target="_blank" rel="noopener" class="demo-btn secondary" style="font-size:13px;text-decoration:none;">Ver guía →</a>
+          </div>
+
+          <div class="demo-card" style="padding:16px 20px;">
+            <div class="demo-card-header" style="margin-bottom:6px;">
+              <span class="demo-badge" style="background:rgba(255,221,68,0.12);border-color:#ffdd44;color:#fde68a;">5 · Refactor</span>
+              <h4 style="font-size:15px;">Vibe refactoring: DRY up el código</h4>
+            </div>
+            <p style="font-size:13px;margin-bottom:10px;">No solo vibe coding — también vibe refactoring. Elimina duplicación de código con Kiro.</p>
+            <a href="https://kiro.dev/docs/guides/learn-by-playing/04-dry-code-refactor" target="_blank" rel="noopener" class="demo-btn secondary" style="font-size:13px;text-decoration:none;">Ver guía →</a>
+          </div>
+
+          <div class="demo-card" style="padding:16px 20px;">
+            <div class="demo-card-header" style="margin-bottom:6px;">
+              <span class="demo-badge" style="background:rgba(255,221,68,0.12);border-color:#ffdd44;color:#fde68a;">6 · Specs</span>
+              <h4 style="font-size:15px;">Implementa verificación de email y reset de contraseña</h4>
+            </div>
+            <p style="font-size:13px;margin-bottom:10px;">Una feature compleja que toca cliente y servidor. Usa Specs para planificar e implementar paso a paso.</p>
+            <a href="https://kiro.dev/docs/guides/learn-by-playing/05-using-specs-for-complex-work" target="_blank" rel="noopener" class="demo-btn secondary" style="font-size:13px;text-decoration:none;">Ver guía →</a>
+          </div>
+
+          <div class="demo-card" style="padding:16px 20px;">
+            <div class="demo-card-header" style="margin-bottom:6px;">
+              <span class="demo-badge" style="background:rgba(0,255,136,0.1);border-color:#00ff88;color:#6ee7b7;">7 · Hooks</span>
+              <h4 style="font-size:15px;">Automatiza la gestión de assets con Hooks</h4>
+            </div>
+            <p style="font-size:13px;margin-bottom:10px;">Identifica trabajo repetitivo y propenso a errores. Los Agent Hooks de Kiro lo automatizan por ti.</p>
+            <a href="https://kiro.dev/docs/guides/learn-by-playing/06-managing-assets-with-agent-hooks" target="_blank" rel="noopener" class="demo-btn secondary" style="font-size:13px;text-decoration:none;">Ver guía →</a>
+          </div>
+
+          <div class="demo-card" style="padding:16px 20px;">
+            <div class="demo-card-header" style="margin-bottom:6px;">
+              <span class="demo-badge" style="background:rgba(0,200,255,0.12);border-color:rgba(0,200,255,0.5);color:#7dd3fc;">8 · MCP</span>
+              <h4 style="font-size:15px;">Extiende Kiro con MCP</h4>
+            </div>
+            <p style="font-size:13px;margin-bottom:10px;">Personaliza Kiro añadiendo contexto y comportamientos extra con Model Context Protocol.</p>
+            <a href="https://kiro.dev/docs/guides/learn-by-playing/07-extending-kiro-with-mcp" target="_blank" rel="noopener" class="demo-btn secondary" style="font-size:13px;text-decoration:none;">Ver guía →</a>
+          </div>
+
+        </div>
+
+        <div style="margin-top:20px;text-align:center;">
+          <a href="https://kiro.dev/docs/guides/learn-by-playing/" target="_blank" rel="noopener"
+             class="demo-btn primary" style="text-decoration:none;font-size:15px;padding:12px 28px;">
+            📚 Ver guía completa en kiro.dev
+          </a>
+        </div>
+
+      </div>
+      </div>
+
+    </div>
+  </div>
+  <script>
+    // --- Audio Engine (Web Audio API) ---
+    const KA = (() => {
+      let ctx, started=false, bgmGain, masterGain, muted=false;
+      function init() { if(started)return; started=true; ctx=new(window.AudioContext||window.webkitAudioContext)(); masterGain=ctx.createGain(); masterGain.gain.value=1; masterGain.connect(ctx.destination); bgmGain=ctx.createGain(); bgmGain.gain.value=0.18; bgmGain.connect(masterGain); }
+      function tone(freq,dur,type='square',vol=0.07,dest) {
+        if(!ctx)return; const o=ctx.createOscillator(),g=ctx.createGain();
+        o.type=type;o.frequency.value=freq;g.gain.value=vol;
+        g.gain.setTargetAtTime(0,ctx.currentTime+dur*0.7,dur*0.15);
+        o.connect(g);g.connect(dest||masterGain);o.start();o.stop(ctx.currentTime+dur);
+      }
+      function noise(dur,vol=0.04) {
+        if(!ctx)return;const n=ctx.createBufferSource(),b=ctx.createBuffer(1,ctx.sampleRate*dur,ctx.sampleRate),d=b.getChannelData(0);
+        for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);n.buffer=b;const g=ctx.createGain();g.gain.value=vol;
+        g.gain.setTargetAtTime(0,ctx.currentTime+dur*0.5,dur*0.2);n.connect(g);g.connect(masterGain);n.start();n.stop(ctx.currentTime+dur);
+      }
+      let bgmInterval=null;
+      function startBGM() {
+        if(!ctx||bgmInterval)return;
+        const notes=[262,330,392,523,392,330,262,196];let i=0;
+        bgmInterval=setInterval(()=>{if(muted)return;tone(notes[i%notes.length],0.22,'triangle',0.05,bgmGain);tone(notes[i%notes.length]*1.5,0.12,'square',0.03,bgmGain);i++;},350);
+      }
+      function stopBGM(){if(bgmInterval){clearInterval(bgmInterval);bgmInterval=null;}}
+      return {
+        init, startBGM, stopBGM,
+        select(){init();tone(600,0.08,'square',0.05);},
+        countdown(){init();tone(440,0.12,'square',0.05);},
+        go(){init();tone(660,0.1,'square',0.07);setTimeout(()=>tone(880,0.15,'square',0.07),100);},
+        navigate(){init();[0,80,160].forEach((d,i)=>setTimeout(()=>tone([440,550,660][i],0.1,'square',0.06),d));},
+        tick(){init();tone(1000,0.03,'square',0.03);},
+        toggle(){muted=!muted;if(masterGain)masterGain.gain.value=muted?0:1;return muted;}
+      };
+    })();
+    document.addEventListener('click',()=>KA.init(),{once:true});
+    document.addEventListener('keydown',()=>KA.init(),{once:true});
+
+    const canvas = document.getElementById('menu');
+    const ctx = canvas.getContext('2d');
+
+    // --- i18n ---
+    let lang = localStorage.getItem('kiroArcadeLang') || 'es';
+    document.getElementById('lang-select').value = lang;
+    document.getElementById('lang-select').addEventListener('change', (e) => {
+      lang = e.target.value;
+      localStorage.setItem('kiroArcadeLang', lang);
+    });
+    const I18N_MENU = {
+      es: {
+        title: '🎮 Kiro Arcade',
+        subtitle: 'Muestra un gesto para elegir juego',
+        clickHint: 'O haz click en una tarjeta para jugar',
+        showGesture: 'Muestra ☝️✊👌🖐️',
+        showHand: '👀 Muestra tu mano para elegir',
+        hold: 'Mantén',
+        holdSelect: 'Mantén para seleccionar',
+        starting: 'Iniciando',
+        noCam: '❌ Cámara no disponible — click para jugar',
+        moduleFail: '❌ Fallo al cargar módulo — click para jugar',
+        modelFail: '❌ Fallo del modelo — click para jugar',
+        ready: '🖐️ Muestra un gesto para elegir'
+      },
+      en: {
+        title: '🎮 Kiro Arcade',
+        subtitle: 'Show a gesture to pick a game',
+        clickHint: 'Or click a game card to play',
+        showGesture: 'Show ☝️✊👌🖐️',
+        showHand: '👀 Show your hand to pick a game',
+        hold: 'Hold',
+        holdSelect: 'Hold to select',
+        starting: 'Starting',
+        noCam: '❌ Camera not available — click to play',
+        moduleFail: '❌ Module load failed — click to play',
+        modelFail: '❌ Model failed — click to play',
+        ready: '🖐️ Show fingers to pick a game'
+      }
+    };
+    function mt(key) { return (I18N_MENU[lang] || I18N_MENU.es)[key]; }
+
+    // Games config
+    const GAMES = [
+      { fingers: 1, emoji: '☝️', name: 'Flappy Kiro', desc: '1 dedo', url: 'src/flappy.html', color: '#790ECB' },
+      { fingers: 0, emoji: '✊', name: 'Fruit Ninja', desc: 'Puño cerrado', url: 'src/fruit-ninja.html', color: '#ff4444' },
+      { fingers: 3, emoji: '👌', name: 'Piedra Papel Tijera', desc: 'Gesto OK', url: 'src/rps.html', color: '#ffdd44' },
+      { fingers: 5, emoji: '🖐️', name: 'Ghost Dodge', desc: 'Mano abierta', url: 'src/ghost-dodge.html', color: '#00ff88' }
+    ];
+
+    // State
+    let appState = 'home'; // 'home' | 'menu'
+    let detectedFingers = 0;
+    let selectedGame = null;
+    let holdStart = 0;
+    const HOLD_TIME = 5000; // 5s hold to confirm
+    let countdownActive = false;
+    let countdownValue = 3;
+    let countdownStart = 0;
+    let navigating = false;
+
+    // Hand detection state
+    let handDetected = false;
+    let lastHandSeenTime = 0;
+    let lastFingerCount = 0;
+    let lastHandLandmarks = null;
+    const HAND_GRACE_MS = 400;
+
+    // Hand connections for skeleton
+    window._mpHandConnections = [
+      [0,1],[1,2],[2,3],[3,4],
+      [0,5],[5,6],[6,7],[7,8],
+      [0,9],[9,10],[10,11],[11,12],
+      [0,13],[13,14],[14,15],[15,16],
+      [0,17],[17,18],[18,19],[19,20],
+      [5,9],[9,13],[13,17]
+    ];
+
+    const overlayCanvas = document.getElementById('hand-overlay');
+    const overlayCtx = overlayCanvas.getContext('2d');
+
+    function drawHandLandmarks(landmarks) {
+      overlayCanvas.width = overlayCanvas.offsetWidth;
+      overlayCanvas.height = overlayCanvas.offsetHeight;
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      if (!landmarks || landmarks.length === 0) return;
+      const w = overlayCanvas.width, h = overlayCanvas.height;
+      const connections = window._mpHandConnections;
+      if (connections) {
+        overlayCtx.strokeStyle = '#790ECB';
+        overlayCtx.lineWidth = 2;
+        for (const conn of connections) {
+          const s = landmarks[conn[0]], e = landmarks[conn[1]];
+          if (!s || !e) continue;
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(s.x * w, s.y * h);
+          overlayCtx.lineTo(e.x * w, e.y * h);
+          overlayCtx.stroke();
+        }
+      }
+      for (const lm of landmarks) {
+        overlayCtx.fillStyle = '#00ff88';
+        overlayCtx.beginPath();
+        overlayCtx.arc(lm.x * w, lm.y * h, 3, 0, Math.PI * 2);
+        overlayCtx.fill();
+      }
+    }
+
+    function countFingers(landmarks) {
+      // Check individual finger states
+      const indexUp = landmarks[8].y < landmarks[6].y;
+      const middleUp = landmarks[12].y < landmarks[10].y;
+      const ringUp = landmarks[16].y < landmarks[14].y;
+      const pinkyUp = landmarks[20].y < landmarks[18].y;
+      const thumbOut = Math.abs(landmarks[4].x - landmarks[2].x) > 0.04;
+
+      // OK gesture: thumb tip close to index tip → mapped to 3 (RPS)
+      const thumbTip = landmarks[4], indexTip = landmarks[8];
+      const okDist = Math.sqrt(
+        Math.pow(thumbTip.x - indexTip.x, 2) + Math.pow(thumbTip.y - indexTip.y, 2)
+      );
+      if (okDist < 0.07) {
+        return 3;
+      }
+
+      // Count extended fingers normally
+      let count = 0;
+      if (indexUp) count++;
+      if (middleUp) count++;
+      if (ringUp) count++;
+      if (pinkyUp) count++;
+      if (thumbOut) count++;
+
+      // 0-1 fingers = fist (0) → Fruit Ninja
+      // 1 finger (index only) = 1 → Flappy Kiro
+      // 5 fingers = open hand → Ghost Dodge
+      // Return exact count: 0 for fist, 1 for index, 5 for open
+      if (count <= 1 && !indexUp) return 0; // fist — no fingers up
+      if (count === 1 && indexUp) return 1;  // just index finger
+      return count;
+    }
+
+    function handleMenuGesture() {
+      const statusEl = document.getElementById('hand-status');
+      const now = Date.now();
+
+      if (navigating) return;
+
+      if (countdownActive) {
+        const elapsed = now - countdownStart;
+        const _prevCD = countdownValue;
+        countdownValue = 3 - Math.floor(elapsed / 1000);
+        if(countdownValue !== _prevCD && countdownValue > 0) KA.countdown();
+        if (countdownValue <= 0) {
+          navigating = true;
+          KA.navigate(); KA.stopBGM();
+          window.location.href = selectedGame.url;
+        }
+        return;
+      }
+
+      // Find matching game
+      const game = GAMES.find(g => g.fingers === detectedFingers);
+
+      if (game) {
+        if (selectedGame && selectedGame.fingers === game.fingers) {
+          // Same game held
+          const held = (now - holdStart) / 1000;
+          const remaining = Math.max(0, Math.ceil(5 - held));
+          statusEl.textContent = `${game.emoji} ${game.name} — ${mt('hold')} ${remaining}s`;
+          statusEl.style.color = game.color;
+
+          if (held >= 5) {
+            countdownActive = true;
+            countdownStart = now;
+            countdownValue = 3;
+            KA.select();
+            statusEl.textContent = `${game.emoji} ${mt('starting')} ${game.name}!`;
+          }
+        } else {
+          // New selection
+          selectedGame = game;
+          holdStart = now;
+          statusEl.textContent = `${game.emoji} ${game.name} — ${mt('holdSelect')}`;
+          statusEl.style.color = game.color;
+        }
+      } else {
+        selectedGame = null;
+        holdStart = 0;
+        if (handDetected) {
+          const gestureNames = {0:'✊',1:'☝️',2:'✌️',3:'👌',4:'🖖',5:'🖐️'};
+          statusEl.textContent = `${gestureNames[detectedFingers] || '✋'} — ${mt('showGesture')}`;
+        } else {
+          statusEl.textContent = mt('showHand');
+        }
+        statusEl.style.color = '#c0c0c0';
+      }
+    }
+
+    // --- Drawing ---
+    function drawHome() {
+      // Background
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, '#0d0d1a');
+      grad.addColorStop(1, '#1a0a2e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(121, 14, 203, 0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+
+      // Logo
+      if (window._kiroLogoImg && window._kiroLogoImg.complete) {
+        const s = 120;
+        ctx.drawImage(window._kiroLogoImg, canvas.width / 2 - s / 2, 160, s, s);
+      } else {
+        ctx.fillStyle = '#790ECB';
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, 220, 60, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Title
+      ctx.fillStyle = '#790ECB';
+      ctx.font = 'bold 52px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#790ECB';
+      ctx.shadowBlur = 25;
+      ctx.fillText('🎮 Kiro Arcade', canvas.width / 2, 360);
+      ctx.shadowBlur = 0;
+
+      // Tagline
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '18px "Segoe UI", sans-serif';
+      ctx.fillText(lang === 'es' ? 'Juegos arcade con IA' : 'Arcade games powered by AI', canvas.width / 2, 400);
+
+      // Player name label + input area (drawn on canvas as label, real input positioned via HTML)
+      const inputY = 430;
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.font = '15px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(lang === 'es' ? '👤 Tu nombre (para el ranking)' : '👤 Your name (for ranking)', canvas.width / 2, inputY);
+
+      // Position the real HTML input over the canvas
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / canvas.width;
+      const scaleY = rect.height / canvas.height;
+      const wrap = document.getElementById('player-name-wrap');
+      const inputAbsY = rect.top + window.scrollY + (inputY + 10) * scaleY;
+      wrap.style.top = inputAbsY + 'px';
+      wrap.style.display = 'block';
+      const nameInput = document.getElementById('player-name-input');
+      nameInput.style.width = Math.round(260 * scaleX) + 'px';
+      nameInput.style.fontSize = Math.round(18 * scaleY) + 'px';
+      nameInput.placeholder = lang === 'es' ? 'Escribe tu nombre...' : 'Enter your name...';
+
+      // Comenzar button — pushed down to make room
+      const btnW = 260, btnH = 64, btnX = canvas.width / 2 - btnW / 2, btnY = 530;
+      const btnGrad = ctx.createLinearGradient(btnX, btnY, btnX + btnW, btnY + btnH);
+      btnGrad.addColorStop(0, '#790ECB');
+      btnGrad.addColorStop(1, '#9b30e8');
+      ctx.fillStyle = btnGrad;
+      ctx.shadowColor = '#790ECB';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.roundRect(btnX, btnY, btnW, btnH, 14);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 24px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(lang === 'es' ? '▶  Comenzar' : '▶  Start', canvas.width / 2, btnY + 41);
+
+      // Store button bounds for click detection
+      window._homeBtnBounds = { x: btnX, y: btnY, w: btnW, h: btnH };
+
+      // "Aprende Kiro" button — same size as Comenzar
+      const learnBtnW = btnW, learnBtnH = btnH, learnBtnX = canvas.width / 2 - learnBtnW / 2, learnBtnY = btnY + btnH + 16;
+      ctx.fillStyle = 'rgba(121,14,203,0.15)';
+      ctx.strokeStyle = 'rgba(121,14,203,0.6)';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(121,14,203,0.3)';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.roundRect(learnBtnX, learnBtnY, learnBtnW, learnBtnH, 14);
+      ctx.fill();
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(192,132,252,0.95)';
+      ctx.font = 'bold 24px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(lang === 'es' ? '✨ Aprende Kiro' : '✨ Learn Kiro', canvas.width / 2, learnBtnY + 41);
+      window._learnBtnBounds = { x: learnBtnX, y: learnBtnY, w: learnBtnW, h: learnBtnH };
+
+      // Reset ranking button (small, subtle)
+      const resetW = 180, resetH = 36, resetX = canvas.width / 2 - resetW / 2, resetY = learnBtnY + learnBtnH + 14;
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(resetX, resetY, resetW, resetH, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '13px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(lang === 'es' ? '🗑️ Resetear rankings' : '🗑️ Reset rankings', canvas.width / 2, resetY + 23);
+      window._resetBtnBounds = { x: resetX, y: resetY, w: resetW, h: resetH };
+    }
+
+    function drawMenu() {
+      // Background
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, '#0d0d1a');
+      grad.addColorStop(1, '#1a0a2e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(121, 14, 203, 0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+
+      if (countdownActive && !navigating) {
+        drawCountdown();
+        return;
+      }
+
+      // Title
+      ctx.fillStyle = '#790ECB';
+      ctx.font = 'bold 44px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#790ECB';
+      ctx.shadowBlur = 20;
+      ctx.fillText(mt('title'), canvas.width / 2, 80);
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = '#c0c0c0';
+      ctx.font = '16px "Segoe UI", sans-serif';
+      ctx.fillText(mt('subtitle'), canvas.width / 2, 110);
+
+      // Game cards
+      const cardW = 680, cardH = 120, startY = 160, gap = 18;
+      for (let i = 0; i < GAMES.length; i++) {
+        const g = GAMES[i];
+        const y = startY + i * (cardH + gap);
+        const isSelected = selectedGame && selectedGame.fingers === g.fingers;
+        const isDetected = detectedFingers === g.fingers;
+
+        // Card background
+        ctx.fillStyle = isSelected ? 'rgba(121, 14, 203, 0.25)' : 'rgba(255,255,255,0.05)';
+        ctx.strokeStyle = isSelected ? g.color : 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = isSelected ? 3 : 1;
+
+        // Rounded rect
+        const x = (canvas.width - cardW) / 2;
+        ctx.beginPath();
+        ctx.roundRect(x, y, cardW, cardH, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        // Glow if selected
+        if (isSelected) {
+          ctx.shadowColor = g.color;
+          ctx.shadowBlur = 15;
+          ctx.strokeStyle = g.color;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+
+        // Emoji
+        ctx.font = '36px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(g.emoji, x + 15, y + 55);
+
+        // Name
+        ctx.fillStyle = isSelected ? '#fff' : 'rgba(255,255,255,0.8)';
+        ctx.font = `bold 22px "Segoe UI", sans-serif`;
+        ctx.fillText(g.name, x + 70, y + 42);
+
+        // Description
+        ctx.fillStyle = isSelected ? g.color : 'rgba(255,255,255,0.4)';
+        ctx.font = '14px "Segoe UI", sans-serif';
+        ctx.fillText(g.desc, x + 70, y + 65);
+
+        // Progress bar if holding
+        if (isSelected && holdStart > 0 && !countdownActive) {
+          const progress = Math.min((Date.now() - holdStart) / HOLD_TIME, 1);
+          ctx.fillStyle = g.color;
+          ctx.globalAlpha = 0.4;
+          ctx.beginPath();
+          ctx.roundRect(x, y + cardH - 6, cardW * progress, 6, [0, 0, 12, 12]);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+
+        // Finger count badge
+        ctx.fillStyle = isDetected ? g.color : 'rgba(255,255,255,0.2)';
+        ctx.font = 'bold 28px "Segoe UI", sans-serif';
+        ctx.textAlign = 'right';
+        const badge = g.fingers === 0 ? '✊' : g.fingers === 5 ? '🖐️' : g.fingers.toString();
+        ctx.fillText(badge, x + cardW - 20, y + 55);
+      }
+
+      // Footer + Home button
+      const homeBtnW = 200, homeBtnH = 52, homeBtnX = canvas.width / 2 - homeBtnW / 2, homeBtnY = canvas.height - 72;
+      ctx.fillStyle = 'rgba(121,14,203,0.25)';
+      ctx.strokeStyle = 'rgba(121,14,203,0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(homeBtnX, homeBtnY, homeBtnW, homeBtnH, 10);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.font = 'bold 18px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🏠 Inicio', canvas.width / 2, homeBtnY + 33);
+      window._menuHomeBtnBounds = { x: homeBtnX, y: homeBtnY, w: homeBtnW, h: homeBtnH };
+
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '14px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(mt('clickHint'), canvas.width / 2, canvas.height - 10);
+    }
+
+    function drawCountdown() {
+      const elapsed = Date.now() - countdownStart;
+      const withinSecond = (elapsed % 1000) / 1000;
+      const scale = 1 + (1 - withinSecond) * 0.3;
+
+      // Show selected game name
+      ctx.fillStyle = selectedGame.color;
+      ctx.font = 'bold 28px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${selectedGame.emoji} ${selectedGame.name}`, canvas.width / 2, canvas.height / 2 - 100);
+
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#790ECB';
+      ctx.font = 'bold 120px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#790ECB';
+      ctx.shadowBlur = 30;
+      ctx.fillText(countdownValue, 0, 0);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      ctx.fillStyle = '#c0c0c0';
+      ctx.font = '20px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Get ready...', canvas.width / 2, canvas.height / 2 + 100);
+    }
+
+    // Click fallback — click on game cards
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+      // Home screen: Comenzar button
+      if (appState === 'home') {
+        const b = window._homeBtnBounds;
+        if (b && mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+          KA.select();
+          hidePlayerInput();
+          _startMenuBGM();
+          appState = 'menu';
+        }
+        // Home screen: Aprende Kiro button
+        const lb = window._learnBtnBounds;
+        if (lb && mx >= lb.x && mx <= lb.x + lb.w && my >= lb.y && my <= lb.y + lb.h) {
+          KA.select();
+          openLearnModal();
+        }
+        // Home screen: Reset rankings button
+        const rb = window._resetBtnBounds;
+        if (rb && mx >= rb.x && mx <= rb.x + rb.w && my >= rb.y && my <= rb.y + rb.h) {
+          fetch('/api/ranking?game=all', { method: 'DELETE' })
+            .then(() => { KA.tick(); })
+            .catch(() => {});
+        }
+        return;
+      }
+
+      // Menu: Home button
+      const hb = window._menuHomeBtnBounds;
+      if (hb && mx >= hb.x && mx <= hb.x + hb.w && my >= hb.y && my <= hb.y + hb.h) {
+        KA.select();
+        KA.stopBGM(); // stop music when going back to home
+        appState = 'home';
+        selectedGame = null;
+        holdStart = 0;
+        countdownActive = false;
+        navigating = false;
+        // Re-show player name input
+        document.getElementById('player-name-wrap').style.display = 'block';
+        return;
+      }
+
+      // Menu: game cards
+      const cardW = 680, cardH = 120, startY = 160, gap = 18;
+      const x = (canvas.width - cardW) / 2;
+      for (let i = 0; i < GAMES.length; i++) {
+        const y = startY + i * (cardH + gap);
+        if (mx >= x && mx <= x + cardW && my >= y && my <= y + cardH) {
+          if (!countdownActive && !navigating) {
+            selectedGame = GAMES[i];
+            countdownActive = true;
+            countdownStart = Date.now();
+            countdownValue = 3;
+            KA.select();
+          }
+          break;
+        }
+      }
+    });
+
+    // Menu loop
+    function menuLoop() {
+      if (appState === 'home') {
+        drawHome();
+      } else {
+        handleMenuGesture();
+        drawMenu();
+      }
+      requestAnimationFrame(menuLoop);
+    }
+    // Start BGM only when entering the menu (not on home screen)
+    function _startMenuBGM(){KA.init();KA.startBGM();}
+    document.addEventListener('keydown',()=>KA.init(),{once:true});
+    document.addEventListener('keydown', e => { if(e.code==='KeyM') KA.toggle(); });
+
+    // --- Hand Detection (same pipeline as flappy) ---
+    async function initHandDetection() {
+      const video = document.getElementById('webcam');
+      const statusEl = document.getElementById('hand-status');
+      let frameCounter = 0;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 320, height: 240, facingMode: 'user' }
+        });
+        video.srcObject = stream;
+        await new Promise(r => { video.onloadedmetadata = r; });
+        await video.play();
+        statusEl.textContent = mt('ready');
+      } catch (err) {
+        statusEl.textContent = mt('noCam');
+        return;
+      }
+
+      let HandLandmarker, FilesetResolver;
+      try {
+        const mod = await import(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs'
+        );
+        HandLandmarker = mod.HandLandmarker;
+        FilesetResolver = mod.FilesetResolver;
+        if (HandLandmarker.HAND_CONNECTIONS) {
+          window._mpHandConnections = HandLandmarker.HAND_CONNECTIONS.map(c => [c.start, c.end]);
+        }
+      } catch (err) {
+        statusEl.textContent = mt('moduleFail');
+        return;
+      }
+
+      let vision;
+      try {
+        vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
+        );
+      } catch (err) {
+        statusEl.textContent = '❌ WASM load failed';
+        return;
+      }
+
+      let handLandmarker;
+      const modelUrl = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+      for (const delegate of ['GPU', 'CPU']) {
+        try {
+          handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: modelUrl, delegate },
+            runningMode: 'VIDEO',
+            numHands: 1,
+            minHandDetectionConfidence: 0.3,
+            minHandPresenceConfidence: 0.3,
+            minTrackingConfidence: 0.3
+          });
+          break;
+        } catch (err) {
+          handLandmarker = null;
+        }
+      }
+
+      if (!handLandmarker) {
+        statusEl.textContent = mt('modelFail');
+        return;
+      }
+
+      statusEl.textContent = mt('ready');
+
+      let lastTime = -1;
+      function detect() {
+        if (video.readyState >= 2) {
+          const now = performance.now();
+          if (now > lastTime) {
+            lastTime = now;
+            frameCounter++;
+            try {
+              const results = handLandmarker.detectForVideo(video, now);
+              if (results.landmarks && results.landmarks.length > 0) {
+                handDetected = true;
+                lastHandSeenTime = Date.now();
+                const lm = results.landmarks[0];
+                lastHandLandmarks = lm;
+                detectedFingers = countFingers(lm);
+                lastFingerCount = detectedFingers;
+                drawHandLandmarks(lm);
+              } else {
+                const timeSince = Date.now() - lastHandSeenTime;
+                if (lastHandSeenTime > 0 && timeSince < HAND_GRACE_MS) {
+                  detectedFingers = lastFingerCount;
+                  handDetected = true;
+                  if (lastHandLandmarks) drawHandLandmarks(lastHandLandmarks);
+                } else {
+                  handDetected = false;
+                  detectedFingers = 0;
+                  lastHandLandmarks = null;
+                  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                }
+              }
+            } catch (err) {}
+          }
+        }
+        requestAnimationFrame(detect);
+      }
+      detect();
+    }
+
+    // --- Modal: Aprende Kiro ---
+    function openLearnModal() {
+      updateLearnModalLang();
+      document.getElementById('learn-modal').classList.add('open');
+      drawQR('https://kiro.dev', document.getElementById('qr-canvas'));
+    }
+    function closeLearnModal() {
+      document.getElementById('learn-modal').classList.remove('open');
+    }
+    document.getElementById('learn-close').addEventListener('click', closeLearnModal);
+    document.getElementById('learn-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('learn-modal')) closeLearnModal();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLearnModal(); });
+
+    // Tab switching
+    document.querySelectorAll('.learn-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.learn-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.learn-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        if (tab.dataset.tab === 'play') {
+          drawQR('https://kiro.dev/docs/guides/learn-by-playing/', document.getElementById('qr-play-canvas'));
+        }
+      });
+    });
+
+    // Open Kiro via deep link, fallback to kiro.dev
+    function openKiro() {
+      const fallback = setTimeout(() => { window.open('https://kiro.dev', '_blank'); }, 1500);
+      window.location.href = 'kiro://';
+      window.addEventListener('blur', () => clearTimeout(fallback), { once: true });
+    }
+
+    // Copy prompt to clipboard
+    function copyPrompt(promptId, btnId) {
+      const text = document.getElementById(promptId).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById(btnId);
+        btn.classList.add('copied');
+        btn.textContent = '✓ Copiado';
+        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '📋 Copiar prompt'; }, 2000);
+      });
+    }
+
+    function updateLearnModalLang() {
+      const es = lang === 'es';
+      document.getElementById('learn-subtitle').textContent = es
+        ? 'Tu IDE con IA para construir más rápido'
+        : 'Your AI-powered IDE to build faster';
+      document.getElementById('learn-what-title').textContent = es ? '¿Qué es Kiro?' : 'What is Kiro?';
+      document.getElementById('learn-what-text').textContent = es
+        ? 'Kiro es un IDE potenciado por IA diseñado para desarrolladores. Combina un editor de código inteligente con un agente de IA que entiende tu proyecto, genera código, escribe tests y te ayuda a iterar más rápido que nunca.'
+        : 'Kiro is an AI-powered IDE built for developers. It combines a smart code editor with an AI agent that understands your project, generates code, writes tests, and helps you iterate faster than ever.';
+      document.getElementById('learn-how-title').textContent = es ? '¿Cómo funciona?' : 'How does it work?';
+      document.getElementById('learn-how-list').innerHTML = es
+        ? `<li><strong>Specs</strong> — Define requisitos en lenguaje natural y Kiro genera el plan de implementación.</li>
+           <li><strong>Hooks</strong> — Automatiza acciones del agente cuando ocurren eventos en el IDE.</li>
+           <li><strong>Steering</strong> — Guía al agente con reglas y contexto específico de tu proyecto.</li>
+           <li><strong>Autopilot</strong> — Deja que Kiro implemente cambios de forma autónoma mientras tú supervisas.</li>`
+        : `<li><strong>Specs</strong> — Define requirements in plain language and Kiro generates the implementation plan.</li>
+           <li><strong>Hooks</strong> — Automate agent actions when IDE events occur.</li>
+           <li><strong>Steering</strong> — Guide the agent with project-specific rules and context.</li>
+           <li><strong>Autopilot</strong> — Let Kiro implement changes autonomously while you supervise.</li>`;
+      document.getElementById('learn-videos-title').textContent = es ? 'Videos' : 'Videos';
+      document.getElementById('learn-qr-title').textContent = es ? 'Visita Kiro' : 'Visit Kiro';
+      document.getElementById('learn-qr-heading').textContent = es ? 'Escanea para abrir Kiro' : 'Scan to open Kiro';
+      document.getElementById('learn-qr-desc').innerHTML = es
+        ? 'Accede a la web oficial, documentación y descarga el IDE.<br><a href="https://kiro.dev" target="_blank" rel="noopener">kiro.dev →</a>'
+        : 'Access the official website, docs, and download the IDE.<br><a href="https://kiro.dev" target="_blank" rel="noopener">kiro.dev →</a>';
+    }
+
+    // --- QR Code generator (pure canvas, no library) ---
+    // Minimal QR using a public API rendered into canvas via Image
+    function drawQR(url, canvasEl) {
+      const size = canvasEl.width;
+      const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}&bgcolor=0d0d1a&color=c084fc&format=png`;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const c = canvasEl.getContext('2d');
+        // Dark background
+        c.fillStyle = '#0d0d1a';
+        c.fillRect(0, 0, size, size);
+        c.drawImage(img, 0, 0, size, size);
+      };
+      img.onerror = () => {
+        // Fallback: draw a placeholder
+        const c = canvasEl.getContext('2d');
+        c.fillStyle = '#1a0a2e';
+        c.fillRect(0, 0, size, size);
+        c.strokeStyle = '#790ECB';
+        c.lineWidth = 2;
+        c.strokeRect(4, 4, size - 8, size - 8);
+        c.fillStyle = '#c084fc';
+        c.font = '11px monospace';
+        c.textAlign = 'center';
+        c.fillText('kiro.dev', size / 2, size / 2);
+      };
+      img.src = apiUrl;
+    }
+
+    // Hide player name input when not on home screen
+    function hidePlayerInput() {
+      document.getElementById('player-name-wrap').style.display = 'none';
+    }
+
+    // Save player name on input change
+    const _nameInput = document.getElementById('player-name-input');
+    const _savedName = localStorage.getItem('kiroPlayerName') || '';
+    _nameInput.value = _savedName;
+    _nameInput.addEventListener('input', () => {
+      localStorage.setItem('kiroPlayerName', _nameInput.value.trim());
+    });
+    // Prevent canvas click-through on input
+    _nameInput.addEventListener('click', e => e.stopPropagation());
+    _nameInput.addEventListener('keydown', e => { if (e.code === 'Space') e.stopPropagation(); });
+    menuLoop();
+    initHandDetection();
+    // Preload logo for home screen
+    window._kiroLogoImg = new Image();
+    window._kiroLogoImg.src = 'images/kiro-logo.png';
+  </script>
+</body>
+</html>
