@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fruit Ninja — Kiro Arcade</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+    canvas { border: 2px solid #790ECB; border-radius: 8px; box-shadow: 0 0 30px rgba(121,14,203,0.3); max-height: 90vh; width: auto; }
+    #webcam-container { position: fixed; bottom: 20px; right: 20px; width: 400px; height: 300px; border: 2px solid #790ECB; border-radius: 8px; overflow: hidden; box-shadow: 0 0 15px rgba(121,14,203,0.4); z-index: 10; }
+    #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    #hand-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+    #hand-status { position: fixed; bottom: 325px; right: 20px; color: #c0c0c0; font-family: 'Segoe UI', sans-serif; font-size: 13px; text-align: center; width: 400px; z-index: 10; }
+    #back-btn { position: fixed; top: 15px; left: 15px; background: rgba(121,14,203,0.3); color: #fff; border: 1px solid #790ECB; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 10; }
+    #back-btn:hover { background: rgba(121,14,203,0.6); }
+  </style>
+</head>
+<body>
+  <button id="back-btn">← Menu</button>
+  <canvas id="game" width="800" height="1000"></canvas>
+  <div id="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="hand-overlay"></canvas>
+  </div>
+  <div id="hand-status"></div>
+  <script>
+    // --- Audio Engine (Web Audio API) ---
+    const KA = (() => {
+      let ctx, started=false, bgmGain, masterGain, muted=false;
+      function init() { if(started)return; started=true; ctx=new(window.AudioContext||window.webkitAudioContext)(); masterGain=ctx.createGain(); masterGain.gain.value=1; masterGain.connect(ctx.destination); bgmGain=ctx.createGain(); bgmGain.gain.value=0.18; bgmGain.connect(masterGain); }
+      function tone(freq,dur,type='square',vol=0.07,dest) {
+        if(!ctx)return; const o=ctx.createOscillator(),g=ctx.createGain();
+        o.type=type;o.frequency.value=freq;g.gain.value=vol;
+        g.gain.setTargetAtTime(0,ctx.currentTime+dur*0.7,dur*0.15);
+        o.connect(g);g.connect(dest||masterGain);o.start();o.stop(ctx.currentTime+dur);
+      }
+      function noise(dur,vol=0.04) {
+        if(!ctx)return;const n=ctx.createBufferSource(),b=ctx.createBuffer(1,ctx.sampleRate*dur,ctx.sampleRate),d=b.getChannelData(0);
+        for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);n.buffer=b;const g=ctx.createGain();g.gain.value=vol;
+        g.gain.setTargetAtTime(0,ctx.currentTime+dur*0.5,dur*0.2);n.connect(g);g.connect(masterGain);n.start();n.stop(ctx.currentTime+dur);
+      }
+      let bgmInterval=null;
+      function startBGM() {
+        if(!ctx||bgmInterval)return;
+        const notes=[330,392,440,494,523,494,440,392];let i=0;
+        bgmInterval=setInterval(()=>{if(muted)return;tone(notes[i%notes.length],0.15,'square',0.05,bgmGain);tone(notes[i%notes.length]*0.5,0.15,'triangle',0.04,bgmGain);i++;},250);
+      }
+      function stopBGM(){if(bgmInterval){clearInterval(bgmInterval);bgmInterval=null;}}
+      return {
+        init, startBGM, stopBGM,
+        jump(){init();tone(520,0.1,'square',0.06);tone(680,0.1,'square',0.04);},
+        score(){init();tone(660,0.08,'square',0.06);setTimeout(()=>tone(880,0.12,'square',0.06),80);},
+        hit(){init();noise(0.3,0.07);tone(150,0.3,'sawtooth',0.06);},
+        countdown(){init();tone(440,0.12,'square',0.05);},
+        go(){init();tone(660,0.1,'square',0.07);setTimeout(()=>tone(880,0.15,'square',0.07),100);},
+        win(){init();[0,100,200,300].forEach((d,i)=>setTimeout(()=>tone([523,659,784,1047][i],0.2,'square',0.06),d));},
+        lose(){init();tone(300,0.15,'sawtooth',0.06);setTimeout(()=>tone(200,0.3,'sawtooth',0.06),150);},
+        select(){init();tone(600,0.08,'square',0.05);},
+        slice(){init();noise(0.08,0.05);tone(800+Math.random()*400,0.06,'square',0.04);},
+        tick(){init();tone(1000,0.03,'square',0.03);},
+        toggle(){muted=!muted;if(masterGain)masterGain.gain.value=muted?0:1;return muted;}
+      };
+    })();
+    document.addEventListener('click',()=>KA.init(),{once:true});
+    document.addEventListener('keydown',()=>KA.init(),{once:true});
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    // --- i18n ---
+    let lang = localStorage.getItem('kiroArcadeLang') || 'es';
+    const I18N = {
+      es: {
+        title: '🍉 Fruit Ninja',
+        subtitle: 'Mano abierta para cortar, evita 💣',
+        startHint: 'ESPACIO o click para empezar',
+        gameOver: 'Fin del Juego',
+        score: 'Puntos',
+        ranking: '🏆 Top 5',
+        openRestart: '🖐️ Mano abierta para reiniciar',
+        fistMenu: '✊ Puño cerrado para volver al menú',
+        spaceRetry: 'ESPACIO / click para reintentar',
+        holdBack: '✊ Mantén para volver...',
+        slicing: '🗡️ ¡Cortando!',
+        closed: '✊ Cerrada',
+        holdingBack: '✊ Mantén para volver...',
+        showHand: '👀 Muestra la mano',
+        loadingModel: '🖐️ Cargando modelo...',
+        noCam: '❌ Sin cámara',
+        moduleFail: '❌ Fallo del módulo',
+        modelFail: '❌ Fallo del modelo',
+        ready: '🖐️ ¡Mano abierta para cortar!',
+        diffLabels: ['Fácil', 'Medio', 'Difícil', 'Extremo', 'Imposible'],
+        hi: 'REC',
+        pts: 'pts',
+        getReady: 'Prepárate...',
+        noScores: 'Sin puntuaciones'
+      },
+      en: {
+        title: '🍉 Fruit Ninja',
+        subtitle: 'Open hand to slice, avoid 💣',
+        startHint: 'SPACE or click to start',
+        gameOver: 'Game Over',
+        score: 'Score',
+        ranking: '🏆 Top 5',
+        openRestart: '🖐️ Open hand to restart',
+        fistMenu: '✊ Fist to go back to menu',
+        spaceRetry: 'SPACE / click to retry',
+        holdBack: '✊ Hold to go back...',
+        slicing: '🗡️ Slicing!',
+        closed: '✊ Closed',
+        holdingBack: '✊ Hold to go back...',
+        showHand: '👀 Show hand',
+        loadingModel: '🖐️ Loading model...',
+        noCam: '❌ No camera',
+        moduleFail: '❌ Module failed',
+        modelFail: '❌ Model failed',
+        ready: '🖐️ Open hand to slice!',
+        diffLabels: ['Easy', 'Medium', 'Hard', 'Insane', 'Impossible'],
+        hi: 'HI',
+        pts: 'pts',
+        getReady: 'Get ready...',
+        noScores: 'No scores yet'
+      }
+    };
+    function t(k) { return (I18N[lang] || I18N.es)[k]; }
+
+    // --- AI Comments System (Bedrock Nova) ---
+    const aiComments = [];
+    let lastCommentTime = 0;
+    const COMMENT_INTERVAL = 4000;
+    let commentFetching = false;
+
+    // --- TTS Audio Queue (Polly) ---
+    const ttsQueue = [];
+    let ttsPlaying = false;
+
+    function playNextTTS() {
+      if (ttsPlaying || ttsQueue.length === 0) return;
+      ttsPlaying = true;
+      const b64 = ttsQueue.shift();
+      try {
+        const audio = new Audio('data:audio/mp3;base64,' + b64);
+        audio.volume = 0.7;
+        audio.onended = () => { ttsPlaying = false; playNextTTS(); };
+        audio.onerror = () => { ttsPlaying = false; playNextTTS(); };
+        audio.play().catch(() => { ttsPlaying = false; playNextTTS(); });
+      } catch(e) { ttsPlaying = false; playNextTTS(); }
+    }
+
+    async function fetchTTS(text) {
+      try {
+        const resp = await fetch('/api/tts', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ text, lang }) });
+        const data = await resp.json();
+        if (data.audio) { ttsQueue.push(data.audio); playNextTTS(); }
+      } catch(e) {}
+    }
+
+    async function fetchAIComment(event) {
+      if (commentFetching) return;
+      commentFetching = true;
+      try {
+        const resp = await fetch('/api/comment', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ game: 'fruit-ninja', score, event, lang }) });
+        const data = await resp.json();
+        if (data.comment) {
+          aiComments.push({ text: data.comment, x: canvas.width + 10, y: 80 + Math.random() * 150, speed: 1.2 + Math.random() * 0.8, opacity: 1, color: ['#00ff88','#ffdd44','#ff69b4','#00ffff','#ff8800','#bb77ff'][Math.floor(Math.random()*6)], size: Math.floor(Math.random()*4) + 16 });
+          fetchTTS(data.comment);
+        }
+      } catch(e) {}
+      commentFetching = false;
+    }
+
+    function updateAIComments() {
+      for (let i = aiComments.length - 1; i >= 0; i--) { aiComments[i].x -= aiComments[i].speed; if (aiComments[i].x < -500) aiComments.splice(i, 1); }
+      while (aiComments.length > 6) aiComments.shift();
+    }
+
+    function drawAIComments() {
+      for (const c of aiComments) {
+        ctx.globalAlpha = 0.85; ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        const tw = ctx.measureText(c.text).width;
+        ctx.beginPath(); ctx.roundRect(c.x - 6, c.y - c.size + 2, tw + 12, c.size + 8, 6); ctx.fill();
+        ctx.fillStyle = c.color; ctx.font = `bold ${c.size}px "Segoe UI", sans-serif`; ctx.textAlign = 'left';
+        ctx.fillText(c.text, c.x, c.y);
+      }
+      ctx.globalAlpha = 1; ctx.textAlign = 'center';
+    }
+
+    // --- AI Image System (Bedrock Nova Canvas) ---
+    let aiImage = null;
+    let aiImageLoading = false;
+    let aiImageObj = null;
+
+    // --- Camera Capture ---
+    let cameraPhoto = null;
+    let cameraStream = null;
+
+    async function captureCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 512, height: 512, facingMode: 'user' } });
+        cameraStream = stream;
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.setAttribute('playsinline', '');
+        await video.play();
+        await new Promise(r => setTimeout(r, 500));
+        const c = document.createElement('canvas');
+        c.width = 512; c.height = 512;
+        c.getContext('2d').drawImage(video, 0, 0, 512, 512);
+        cameraPhoto = c.toDataURL('image/png').split(',')[1];
+        stream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+        console.log('📸 Camera: foto capturada!');
+        fetchAIImage();
+      } catch(e) {
+        console.log('📷 Camera not available, using text-to-image fallback');
+        cameraPhoto = null;
+      }
+    }
+
+    async function fetchAIImage() {
+      if (aiImageLoading || aiImageObj) return;
+      aiImageLoading = true;
+      try {
+        const payload = { game: 'fruit-ninja', score, lang };
+        if (cameraPhoto) payload.photo = cameraPhoto;
+        const resp = await fetch('/api/image', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        const data = await resp.json();
+        if (data.image) { aiImage = 'data:image/png;base64,' + data.image; aiImageObj = new Image(); aiImageObj.src = aiImage; }
+      } catch(e) {}
+      aiImageLoading = false;
+    }
+
+    const FRUITS = ['🍎','🍊','🍉','🍇','🍋','🍓','🍑','🥝'];
+    const BOMB = '💣';
+
+    // States: start | countdown | playing | gameOver
+    let gameState = 'start';
+    let score = 0;
+    let lives = 3;
+    let items = [];
+    let sliceTrail = [];
+    let particles = [];
+    let frameCount = 0;
+    let highScore = 0;
+    let lastRanking = [];
+    let handX = canvas.width/2, handY = canvas.height/2;
+    let prevHandX = handX, prevHandY = handY;
+    let handOpen = false;
+    let spawnRate = 70;
+    let fallSpeed = 2.5;
+    let bombChance = 0.15;
+    let difficultyLevel = 0;
+    const DIFFICULTY_COLORS = ['#00ff88', '#ffdd44', '#ff8800', '#ff4444', '#ff00ff'];
+
+    // Countdown
+    let countdownValue = 3;
+    let countdownStartTime = 0;
+
+    // Ranking
+    function loadRanking(){try{const d=JSON.parse(localStorage.getItem('fruitNinjaRanking'));return Array.isArray(d)?d.slice(0,5):[];}catch(e){return[];}}
+    function saveToRanking(s){
+      const name=(localStorage.getItem('kiroPlayerName')||'').trim()||'???';
+      const date=new Date().toLocaleDateString();
+      fetch('/api/ranking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({game:'fruit-ninja',score:s,name,date})})
+        .then(r=>r.json()).then(top5=>{lastRanking=top5;}).catch(()=>{});
+      const r=loadRanking();r.push({score:s,name,date});r.sort((a,b)=>b.score-a.score);const top5=r.slice(0,5);
+      try{localStorage.setItem('fruitNinjaRanking',JSON.stringify(top5));}catch(e){}return top5;
+    }
+    function loadRankingFromServer(){fetch('/api/ranking?game=fruit-ninja').then(r=>r.json()).then(d=>{if(Array.isArray(d)&&d.length>0)lastRanking=d;}).catch(()=>{});}
+    function loadHighScore(){try{const v=parseInt(localStorage.getItem('fruitNinjaHigh'));return isNaN(v)?0:v;}catch(e){return 0;}}
+    function saveHighScore(s){try{if(s>loadHighScore())localStorage.setItem('fruitNinjaHigh',s.toString());}catch(e){}}
+
+    function resetGame() {
+      items=[]; sliceTrail=[]; particles=[]; score=0; lives=3; frameCount=0;
+      spawnRate=70; fallSpeed=2.5; bombChance=0.15; difficultyLevel=0;
+      aiComments.length = 0; ttsQueue.length = 0; ttsPlaying = false; lastCommentTime = Date.now();
+      aiImage = null; aiImageObj = null; aiImageLoading = false;
+    }
+
+    function spawnItem() {
+      const isBomb = Math.random() < bombChance;
+      const x = Math.random() * (canvas.width - 80) + 40;
+      items.push({
+        x, y: -60,
+        vx: (Math.random()-0.5)*1.5,
+        vy: fallSpeed + Math.random()*1.5,
+        emoji: isBomb ? BOMB : FRUITS[Math.floor(Math.random()*FRUITS.length)],
+        isBomb, sliced: false, size: 60
+      });
+    }
+
+    function spawnSliceParticles(x, y, color) {
+      for(let i=0;i<10;i++){
+        const a=Math.random()*Math.PI*2, s=Math.random()*4+1, l=Math.floor(Math.random()*15)+12;
+        particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:l,maxLife:l,color,radius:Math.random()*4+2});
+      }
+    }
+
+    function checkSlice(item) {
+      if(item.sliced || sliceTrail.length < 2) return false;
+      const last = sliceTrail[sliceTrail.length-1];
+      const prev = sliceTrail[sliceTrail.length-2];
+      const dx = last.x - item.x, dy = last.y - item.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      const swipeDx = last.x-prev.x, swipeDy = last.y-prev.y;
+      const swipeSpeed = Math.sqrt(swipeDx*swipeDx+swipeDy*swipeDy);
+      return dist < item.size*1.2 && swipeSpeed > 2;
+    }
+
+    function update() {
+      // Countdown timer
+      if(gameState === 'countdown') {
+        const elapsed = Date.now() - countdownStartTime;
+        const _prevCD = countdownValue;
+        countdownValue = 3 - Math.floor(elapsed / 1000);
+        if(countdownValue !== _prevCD && countdownValue > 0) KA.countdown();
+        if(countdownValue <= 0) { KA.go(); gameState = 'playing'; resetGame(); }
+        return;
+      }
+      if(gameState !== 'playing') return;
+      frameCount++;
+
+      // Spawn from top
+      if(frameCount % spawnRate === 0) spawnItem();
+      // Progressive difficulty every 400 frames
+      if(frameCount % 400 === 0) {
+        spawnRate = Math.max(spawnRate - 6, 20);
+        fallSpeed = Math.min(fallSpeed + 0.4, 7);
+        bombChance = Math.min(bombChance + 0.03, 0.35);
+        difficultyLevel = Math.min(Math.floor((fallSpeed - 2.5) / 0.9), 4);
+      }
+
+      // Update items — fall from sky
+      for(let i=items.length-1;i>=0;i--){
+        const it = items[i];
+        it.x += it.vx; it.y += it.vy;
+
+        // Check slice
+        if(!it.sliced && handOpen && checkSlice(it)){
+          it.sliced = true;
+          if(it.isBomb){
+            lives--; spawnSliceParticles(it.x,it.y,'#ff4444'); KA.hit();
+            if(lives<=0){ endGame(); return; }
+          } else {
+            score++; spawnSliceParticles(it.x,it.y,'#00ff88'); KA.slice();
+          }
+        }
+
+        // Remove if off screen bottom
+        if(it.y > canvas.height+60) {
+          if(!it.sliced && !it.isBomb) { lives--; if(lives<=0){ endGame(); return; } }
+          items.splice(i,1);
+        }
+        // Shrink sliced
+        if(it.sliced) { it.size *= 0.93; if(it.size < 8) items.splice(i,1); }
+      }
+
+      // Particles
+      for(let i=particles.length-1;i>=0;i--){
+        particles[i].x+=particles[i].vx; particles[i].y+=particles[i].vy;
+        particles[i].vy+=0.1; // gravity on particles
+        particles[i].life--;
+        if(particles[i].life<=0) particles.splice(i,1);
+      }
+
+      // Slice trail decay
+      if(sliceTrail.length > 20) sliceTrail.shift();
+
+      // AI comments — fetch periodically during play
+      updateAIComments();
+      const now2 = Date.now();
+      if (now2 - lastCommentTime > COMMENT_INTERVAL) {
+        lastCommentTime = now2;
+        const events = ['slicing fruits','combo streak','blade master','juicy cuts','ninja mode','fruit rain'];
+        if (score > 0 && score % 5 === 0) fetchAIComment('milestone score ' + score);
+        else fetchAIComment(events[Math.floor(Math.random()*events.length)]);
+      }
+    }
+
+    let gameOverTime = 0;
+    const GAMEOVER_COOLDOWN = 3000; // 3s before hand can restart
+
+    function endGame() {
+      if(score>highScore) highScore=score;
+      saveHighScore(score);
+      lastRanking = saveToRanking(score);
+      gameState='gameOver';
+      gameOverTime = Date.now();
+      KA.lose(); KA.stopBGM();
+      fetchAIComment('game over! final score ' + score);
+      fetchAIImage();
+    }
+
+    function startCountdown() {
+      if(gameState==='start'||gameState==='gameOver') {
+        if(gameState==='start') captureCamera(); // capture photo early
+        if(gameState==='gameOver') resetGame();
+        gameState='countdown'; countdownValue=3; countdownStartTime=Date.now();
+        KA.select(); KA.startBGM();
+      }
+    }
+
+    function drawBackground() {
+      const g=ctx.createLinearGradient(0,0,0,canvas.height);
+      g.addColorStop(0,'#0d0d1a');g.addColorStop(1,'#1a0a2e');
+      ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);
+    }
+
+    function draw() {
+      drawBackground();
+
+      // Slice trail — thicker glow
+      if(sliceTrail.length > 1 && handOpen) {
+        ctx.strokeStyle = 'rgba(121,14,203,0.7)'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo(sliceTrail[0].x, sliceTrail[0].y);
+        for(let i=1;i<sliceTrail.length;i++) ctx.lineTo(sliceTrail[i].x, sliceTrail[i].y);
+        ctx.stroke();
+        // Outer glow
+        ctx.strokeStyle = 'rgba(121,14,203,0.2)'; ctx.lineWidth = 22;
+        ctx.beginPath(); ctx.moveTo(sliceTrail[0].x, sliceTrail[0].y);
+        for(let i=1;i<sliceTrail.length;i++) ctx.lineTo(sliceTrail[i].x, sliceTrail[i].y);
+        ctx.stroke();
+      }
+
+      // Items
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      for(const it of items){
+        ctx.globalAlpha = it.sliced ? it.size/60 : 1;
+        ctx.font = `${it.size}px "Segoe UI", sans-serif`;
+        ctx.fillText(it.emoji, it.x, it.y);
+      }
+      ctx.globalAlpha = 1;
+
+      // Particles
+      for(const p of particles){ctx.globalAlpha=p.life/p.maxLife;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);ctx.fill();}
+      ctx.globalAlpha=1;
+
+      // Hand cursor — BIGGER sword
+      if(gameState==='playing'){
+        ctx.font='56px sans-serif'; ctx.textAlign='center';
+        ctx.fillText(handOpen?'🗡️':'✊', handX, handY);
+      }
+
+      // HUD
+      ctx.fillStyle='#fff';ctx.font='bold 36px "Segoe UI", sans-serif';ctx.textAlign='center';
+      ctx.shadowColor='#790ECB';ctx.shadowBlur=15;ctx.fillText(score,canvas.width/2,50);ctx.shadowBlur=0;
+      // Lives
+      ctx.font='28px sans-serif';ctx.textAlign='left';
+      ctx.fillText('❤️'.repeat(lives),10,42);
+      ctx.fillStyle='rgba(255,255,255,0.7)';ctx.font='16px "Segoe UI", sans-serif';ctx.textAlign='right';
+      ctx.fillText(t('hi')+': '+highScore,canvas.width-15,30);
+
+      // Difficulty label
+      if(gameState==='playing'){
+        ctx.fillStyle=DIFFICULTY_COLORS[difficultyLevel];
+        ctx.font='bold 14px "Segoe UI", sans-serif';
+        ctx.textAlign='left';
+        ctx.fillText(t('diffLabels')[difficultyLevel],15,70);
+      }
+
+      // Fist-back-to-menu progress bar
+      if(fistHoldStart > 0) {
+        const prog = Math.min((Date.now()-fistHoldStart)/FIST_BACK_MS, 1);
+        const bw = 400, bh = 24, bx = canvas.width/2-bw/2, by = canvas.height-35;
+        ctx.fillStyle='rgba(0,0,0,0.7)';ctx.beginPath();ctx.roundRect(bx-4,by-4,bw+8,bh+8,8);ctx.fill();
+        ctx.fillStyle='#790ECB';ctx.beginPath();ctx.roundRect(bx,by,bw*prog,bh,6);ctx.fill();
+        ctx.fillStyle='#fff';ctx.font='bold 16px "Segoe UI", sans-serif';ctx.textAlign='center';
+        ctx.fillText(t('holdBack'),canvas.width/2,by-10);
+      }
+
+      if(gameState==='start') drawStart();
+      if(gameState==='countdown') drawCountdown();
+      if(gameState==='gameOver') { updateAIComments(); drawGameOver(); drawAIComments(); }
+      if(gameState==='playing') drawAIComments();
+    }
+
+    function drawStart(){
+      ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#ff4444';ctx.font='bold 44px "Segoe UI", sans-serif';ctx.textAlign='center';
+      ctx.shadowColor='#ff4444';ctx.shadowBlur=20;
+      ctx.fillText(t('title'),canvas.width/2,canvas.height/2-80);ctx.shadowBlur=0;
+      ctx.fillStyle='#c0c0c0';ctx.font='18px "Segoe UI", sans-serif';
+      ctx.fillText(t('subtitle'),canvas.width/2,canvas.height/2-30);
+      ctx.fillText(t('startHint'),canvas.width/2,canvas.height/2);
+
+      // Ranking on start
+      const ranking = loadRanking();
+      if(ranking.length > 0) {
+        ctx.fillStyle='#790ECB';ctx.font='bold 20px "Segoe UI", sans-serif';
+        ctx.fillText(t('ranking'),canvas.width/2,canvas.height/2+50);
+        for(let i=0;i<ranking.length;i++){
+          const m=i===0?'🥇':i===1?'🥈':i===2?'🥉':'  ';
+          ctx.fillStyle='rgba(255,255,255,0.7)';ctx.font='15px "Segoe UI", sans-serif';
+          ctx.fillText(`${m} #${i+1}  ${ranking[i].score} ${t('pts')} — ${ranking[i].date}`,canvas.width/2,canvas.height/2+80+i*28);
+        }
+      }
+    }
+
+    function drawCountdown(){
+      ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,canvas.width,canvas.height);
+      const elapsed = Date.now() - countdownStartTime;
+      const withinSecond = (elapsed % 1000) / 1000;
+      const scale = 1 + (1 - withinSecond) * 0.3;
+      ctx.save();
+      ctx.translate(canvas.width/2, canvas.height/2);
+      ctx.scale(scale, scale);
+      ctx.fillStyle='#790ECB';ctx.font='bold 120px "Segoe UI", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.shadowColor='#790ECB';ctx.shadowBlur=30;
+      ctx.fillText(countdownValue, 0, 0);
+      ctx.shadowBlur=0;ctx.restore();
+      ctx.fillStyle='#c0c0c0';ctx.font='20px "Segoe UI", sans-serif';ctx.textAlign='center';
+      ctx.fillText(t('getReady'),canvas.width/2,canvas.height/2+100);
+    }
+
+    function drawGameOver(){
+      ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#ff4444';ctx.font='bold 48px "Segoe UI", sans-serif';ctx.textAlign='center';
+      ctx.fillText(t('gameOver'),canvas.width/2,110);
+
+      ctx.fillStyle='#fff';ctx.font='bold 32px "Segoe UI", sans-serif';
+      ctx.fillText(t('score')+': '+score,canvas.width/2,170);
+
+      // Difficulty reached
+      ctx.fillStyle=DIFFICULTY_COLORS[difficultyLevel];
+      ctx.font='bold 18px "Segoe UI", sans-serif';
+      ctx.fillText(t('diffLabels')[difficultyLevel],canvas.width/2,200);
+
+      // Ranking
+      ctx.fillStyle='#790ECB';ctx.font='bold 22px "Segoe UI", sans-serif';
+      ctx.fillText(t('ranking'),canvas.width/2,250);
+      const ranking = lastRanking.length > 0 ? lastRanking : loadRanking();
+      if(ranking.length === 0) {
+        ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='16px "Segoe UI", sans-serif';
+        ctx.fillText(t('noScores'),canvas.width/2,280);
+      } else {
+        for(let i=0;i<ranking.length;i++){
+          const m=i===0?'🥇':i===1?'🥈':i===2?'🥉':'  ';
+          const isCurrentScore = ranking[i].score===score && i===ranking.findIndex(r=>r.score===score);
+          ctx.fillStyle=isCurrentScore?'#ffd700':'rgba(255,255,255,0.8)';
+          ctx.font=isCurrentScore?'bold 17px "Segoe UI", sans-serif':'16px "Segoe UI", sans-serif';
+          ctx.fillText(`${m} #${i+1}  ${ranking[i].score} ${t('pts')} — ${ranking[i].name || '???'}  ${ranking[i].date}`,canvas.width/2,280+i*30);
+        }
+      }
+
+      // Action buttons
+      const actY = 460;
+      ctx.fillStyle='rgba(0,255,136,0.15)';ctx.strokeStyle='#00ff88';ctx.lineWidth=2;
+      ctx.beginPath();ctx.roundRect(canvas.width/2-280,actY,560,60,12);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#00ff88';ctx.font='bold 24px "Segoe UI", sans-serif';ctx.textAlign='center';
+      ctx.fillText(t('openRestart'),canvas.width/2,actY+38);
+
+      ctx.fillStyle='rgba(255,221,68,0.15)';ctx.strokeStyle='#ffdd44';ctx.lineWidth=2;
+      ctx.beginPath();ctx.roundRect(canvas.width/2-280,actY+80,560,60,12);ctx.fill();ctx.stroke();
+      ctx.fillStyle='#ffdd44';ctx.font='bold 24px "Segoe UI", sans-serif';
+      ctx.fillText(t('fistMenu'),canvas.width/2,actY+80+38);
+
+      ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='15px "Segoe UI", sans-serif';
+      ctx.fillText(t('spaceRetry'),canvas.width/2,actY+165);
+
+      // AI Generated Image
+      if (aiImageObj && aiImageObj.complete && aiImageObj.naturalWidth > 0) {
+        const imgSize = 260;
+        const imgX = canvas.width / 2 - imgSize / 2;
+        const imgY = actY + 185;
+        ctx.shadowColor = '#790ECB';
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = '#790ECB';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(imgX - 3, imgY - 3, imgSize + 6, imgSize + 6, 12);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(imgX, imgY, imgSize, imgSize, 10);
+        ctx.clip();
+        ctx.drawImage(aiImageObj, imgX, imgY, imgSize, imgSize);
+        ctx.restore();
+        ctx.fillStyle = '#790ECB';
+        ctx.font = 'bold 13px "Segoe UI", sans-serif';
+        ctx.fillText('🤖 Generated by Nova Canvas', canvas.width / 2, imgY + imgSize + 18);
+      } else if (aiImageLoading) {
+        ctx.fillStyle = 'rgba(121,14,203,0.6)';
+        ctx.font = '15px "Segoe UI", sans-serif';
+        ctx.fillText('🎨 ' + (lang === 'es' ? 'Generando imagen con IA...' : 'Generating AI image...'), canvas.width / 2, actY + 195);
+      }
+    }
+
+    let fistHoldStart = 0;
+    const FIST_BACK_MS = 3000;
+
+    let _navigating = false;
+    function goToMenu() {
+      if (_navigating) return;
+      _navigating = true;
+      KA.stopBGM();
+      try { const v=document.getElementById('webcam'); if(v&&v.srcObject){v.srcObject.getTracks().forEach(tr=>tr.stop());v.srcObject=null;} } catch(e){}
+      setTimeout(() => { window.location.href = 'index.html'; }, 50);
+    }
+    document.getElementById('back-btn').addEventListener('click', goToMenu);
+    document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();startCountdown();}if(e.code==='KeyM')KA.toggle();});
+    canvas.addEventListener('click',startCountdown);
+
+    // Mouse fallback
+    canvas.addEventListener('mousemove',e=>{
+      const rect=canvas.getBoundingClientRect();
+      handX=(e.clientX-rect.left)*(canvas.width/rect.width);
+      handY=(e.clientY-rect.top)*(canvas.height/rect.height);
+      if(gameState==='playing') sliceTrail.push({x:handX,y:handY});
+    });
+    canvas.addEventListener('mousedown',()=>{handOpen=true;});
+    canvas.addEventListener('mouseup',()=>{handOpen=false;sliceTrail=[];});
+
+    function gameLoop(){update();draw();requestAnimationFrame(gameLoop);}
+    highScore=loadHighScore();
+    loadRankingFromServer();
+    gameLoop();
+
+    // --- Hand Detection ---
+    const overlayCanvas=document.getElementById('hand-overlay');
+    const overlayCtx=overlayCanvas.getContext('2d');
+    window._mpHandConnections=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+
+    function drawHandLandmarks(lm){overlayCanvas.width=overlayCanvas.offsetWidth;overlayCanvas.height=overlayCanvas.offsetHeight;overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);if(!lm||!lm.length)return;const w=overlayCanvas.width,h=overlayCanvas.height;overlayCtx.strokeStyle='#790ECB';overlayCtx.lineWidth=2;for(const c of window._mpHandConnections){const s=lm[c[0]],e=lm[c[1]];if(!s||!e)continue;overlayCtx.beginPath();overlayCtx.moveTo(s.x*w,s.y*h);overlayCtx.lineTo(e.x*w,e.y*h);overlayCtx.stroke();}for(const l of lm){overlayCtx.fillStyle='#00ff88';overlayCtx.beginPath();overlayCtx.arc(l.x*w,l.y*h,3,0,Math.PI*2);overlayCtx.fill();}}
+
+    function isHandOpenCheck(lm){const fs=[{tip:8,pip:6},{tip:12,pip:10},{tip:16,pip:14},{tip:20,pip:18}];let ext=0;for(const f of fs)if(lm[f.tip].y<lm[f.pip].y)ext++;const td=Math.abs(lm[4].x-lm[2].x);if(td>0.03)ext++;return ext>=3;}
+
+    async function initHandDetection(){
+      const video=document.getElementById('webcam'),statusEl=document.getElementById('hand-status');
+      try{const s=await navigator.mediaDevices.getUserMedia({video:{width:320,height:240,facingMode:'user'}});video.srcObject=s;await new Promise(r=>{video.onloadedmetadata=r;});await video.play();statusEl.textContent=t('loadingModel');}catch(e){statusEl.textContent=t('noCam');return;}
+      let HL,FR;try{const m=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs');HL=m.HandLandmarker;FR=m.FilesetResolver;if(HL.HAND_CONNECTIONS)window._mpHandConnections=HL.HAND_CONNECTIONS.map(c=>[c.start,c.end]);}catch(e){statusEl.textContent=t('moduleFail');return;}
+      let vision;try{vision=await FR.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');}catch(e){return;}
+      let hl;const url='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+      for(const d of['GPU','CPU']){try{hl=await HL.createFromOptions(vision,{baseOptions:{modelAssetPath:url,delegate:d},runningMode:'VIDEO',numHands:1,minHandDetectionConfidence:0.3,minHandPresenceConfidence:0.3,minTrackingConfidence:0.3});break;}catch(e){hl=null;}}
+      if(!hl){statusEl.textContent=t('modelFail');return;}
+      statusEl.textContent=t('ready');
+
+      let lt=-1,lastSeen=0,lastLm=null,lastOpen=false;
+      function detect(){
+        if(video.readyState>=2){const now=performance.now();if(now>lt){lt=now;try{const r=hl.detectForVideo(video,now);
+        if(r.landmarks&&r.landmarks.length>0){const lm=r.landmarks[0];lastSeen=Date.now();lastLm=lm;
+          const fx=(1-lm[8].x)*canvas.width, fy=lm[8].y*canvas.height;
+          prevHandX=handX;prevHandY=handY;handX=fx;handY=fy;
+          handOpen=isHandOpenCheck(lm);lastOpen=handOpen;
+          // Fist-back-to-menu (only when not playing)
+          if(!handOpen && gameState!=='playing' && gameState!=='countdown'){
+            if(fistHoldStart===0)fistHoldStart=Date.now();
+            else if(Date.now()-fistHoldStart>=FIST_BACK_MS){goToMenu();return;}
+          } else if(handOpen) { fistHoldStart=0; }
+          if(handOpen&&gameState==='playing') sliceTrail.push({x:handX,y:handY});
+          else if(gameState==='playing') sliceTrail=[];
+          drawHandLandmarks(lm);
+          if(handOpen&&gameState==='start') startCountdown();
+          if(handOpen&&gameState==='gameOver'&&Date.now()-gameOverTime>=GAMEOVER_COOLDOWN) startCountdown();
+          statusEl.textContent=handOpen?t('slicing'):(!handOpen&&gameState!=='playing'&&gameState!=='countdown'?t('holdingBack'):t('closed'));
+          statusEl.style.color=handOpen?'#00ff88':(fistHoldStart>0?'#ffdd44':'#c0c0c0');
+        }else{
+          const tt=Date.now()-lastSeen;
+          if(lastSeen>0&&tt<400){handOpen=lastOpen;if(lastLm)drawHandLandmarks(lastLm);}
+          else{handOpen=false;sliceTrail=[];fistHoldStart=0;overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);statusEl.textContent=t('showHand');statusEl.style.color='#c0c0c0';}
+        }}catch(e){}}}
+        requestAnimationFrame(detect);
+      }
+      detect();
+    }
+    initHandDetection();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flappy Kiro</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      border: 2px solid #790ECB;
+      border-radius: 8px;
+      box-shadow: 0 0 30px rgba(121, 14, 203, 0.3);
+      max-height: 90vh;
+      width: auto;
+    }
+    #webcam-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 400px;
+      height: 300px;
+      border: 2px solid #790ECB;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(121, 14, 203, 0.4);
+      z-index: 10;
+    }
+    #webcam {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    #hand-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+    }
+    #hand-status {
+      position: fixed;
+      bottom: 325px;
+      right: 20px;
+      color: #c0c0c0;
+      font-family: 'Segoe UI', sans-serif;
+      font-size: 13px;
+      text-align: center;
+      width: 400px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="800" height="1000"></canvas>
+  <div id="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="hand-overlay"></canvas>
+  </div>
+  <div id="hand-status">🖐️ Cargando cámara...</div>
+  <script>
+    // --- Audio Engine (Web Audio API) ---
+    const KA = (() => {
+      let ctx, started=false, bgmGain, masterGain, muted=false;
+      function init() { if(started)return; started=true; ctx=new(window.AudioContext||window.webkitAudioContext)(); masterGain=ctx.createGain(); masterGain.gain.value=1; masterGain.connect(ctx.destination); bgmGain=ctx.createGain(); bgmGain.gain.value=0.35; bgmGain.connect(masterGain); }
+      function tone(freq,dur,type='square',vol=0.04,dest) {
+        if(!ctx)return; const o=ctx.createOscillator(),g=ctx.createGain();
+        o.type=type;o.frequency.value=freq;g.gain.value=vol;
+        g.gain.setTargetAtTime(0,ctx.currentTime+dur*0.7,dur*0.15);
+        o.connect(g);g.connect(dest||masterGain);o.start();o.stop(ctx.currentTime+dur);
+      }
+      function noise(dur,vol=0.02) {
+        if(!ctx)return;const n=ctx.createBufferSource(),b=ctx.createBuffer(1,ctx.sampleRate*dur,ctx.sampleRate),d=b.getChannelData(0);
+        for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1);n.buffer=b;const g=ctx.createGain();g.gain.value=vol;
+        g.gain.setTargetAtTime(0,ctx.currentTime+dur*0.5,dur*0.2);n.connect(g);g.connect(masterGain);n.start();n.stop(ctx.currentTime+dur);
+      }
+      let bgmInterval=null;
+      function startBGM() {
+        if(!ctx||bgmInterval)return;
+        const notes=[262,294,330,349,392,349,330,294];let i=0;
+        bgmInterval=setInterval(()=>{if(muted)return;tone(notes[i%notes.length],0.18,'square',0.06,bgmGain);tone(notes[i%notes.length]/2,0.18,'triangle',0.04,bgmGain);i++;},280);
+      }
+      function stopBGM(){if(bgmInterval){clearInterval(bgmInterval);bgmInterval=null;}}
+      return {
+        init, startBGM, stopBGM,
+        jump(){init();tone(520,0.1,'square',0.03);tone(680,0.1,'square',0.02);},
+        score(){init();tone(660,0.08,'square',0.03);setTimeout(()=>tone(880,0.12,'square',0.03),80);},
+        hit(){init();noise(0.3,0.04);tone(150,0.3,'sawtooth',0.03);},
+        countdown(){init();tone(440,0.12,'square',0.03);},
+        go(){init();tone(660,0.1,'square',0.04);setTimeout(()=>tone(880,0.15,'square',0.04),100);},
+        win(){init();[0,100,200,300].forEach((d,i)=>setTimeout(()=>tone([523,659,784,1047][i],0.2,'square',0.03),d));},
+        lose(){init();tone(300,0.15,'sawtooth',0.03);setTimeout(()=>tone(200,0.3,'sawtooth',0.03),150);},
+        select(){init();tone(600,0.08,'square',0.03);},
+        slice(){init();noise(0.08,0.03);tone(800+Math.random()*400,0.06,'square',0.02);},
+        tick(){init();tone(1000,0.03,'square',0.02);},
+        toggle(){muted=!muted;if(masterGain)masterGain.gain.value=muted?0:1;return muted;}
+      };
+    })();
+    document.addEventListener('click',()=>KA.init(),{once:true});
+    document.addEventListener('keydown',()=>KA.init(),{once:true});
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    // --- i18n ---
+    let lang = localStorage.getItem('kiroArcadeLang') || 'es';
+    const I18N = {
+      es: {
+        title: 'Flappy Kiro',
+        pressToFly: 'Pulsa ESPACIO, click o abre la mano para volar',
+        ranking: '🏆 Top 5 Ranking',
+        highScore: 'Récord',
+        noScores: 'Sin puntuaciones',
+        gameOver: 'Fin del Juego',
+        newHigh: '¡Nuevo Récord!',
+        score: 'Puntos',
+        difficulty: 'Dificultad',
+        getReady: 'Prepárate...',
+        openRestart: '🖐️ Mano abierta para reiniciar',
+        fistMenu: '✊ Puño cerrado para volver al menú',
+        spaceRetry: 'ESPACIO / click para reintentar',
+        holdBack: '✊ Mantén para volver...',
+        handOpen: '🖐️ Abierta — ¡Volando!',
+        handClosed: '✊ Cerrada — Cayendo',
+        noHand: '👀 No se detecta mano',
+        holdStart: '🖐️ Mantén...',
+        starting: '🖐️ ¡Empezando!',
+        loadingCam: '🖐️ Cargando cámara...',
+        camReady: '🖐️ Cámara lista, cargando modelo...',
+        noCam: '❌ Cámara no disponible',
+        modelFail: '❌ Fallo al cargar modelo',
+        ready: '🖐️ ¡Listo! Muestra tu mano',
+        diffLabels: ['Fácil', 'Medio', 'Difícil', 'Extremo', 'Imposible'],
+        pts: 'pts'
+      },
+      en: {
+        title: 'Flappy Kiro',
+        pressToFly: 'Press SPACE, click, or open hand to fly',
+        ranking: '🏆 Top 5 Ranking',
+        highScore: 'HI',
+        noScores: 'No scores yet',
+        gameOver: 'Game Over',
+        newHigh: 'New High Score!',
+        score: 'Score',
+        difficulty: 'Difficulty',
+        getReady: 'Get ready...',
+        openRestart: '🖐️ Open hand to restart',
+        fistMenu: '✊ Fist to go back to menu',
+        spaceRetry: 'SPACE / click to retry',
+        holdBack: '✊ Hold to go back...',
+        handOpen: '🖐️ Open — Flying!',
+        handClosed: '✊ Closed — Falling',
+        noHand: '👀 No hand detected',
+        holdStart: '🖐️ Hold...',
+        starting: '🖐️ Starting!',
+        loadingCam: '🖐️ Loading camera...',
+        camReady: '🖐️ Camera ready, loading model...',
+        noCam: '❌ Camera not available',
+        modelFail: '❌ Model load failed',
+        ready: '🖐️ Ready! Show your hand',
+        diffLabels: ['Easy', 'Medium', 'Hard', 'Insane', 'Impossible'],
+        pts: 'pts'
+      }
+    };
+    function t(key) { return (I18N[lang] || I18N.es)[key]; }
+
+    // --- AI Comments System (Bedrock Nova) ---
+    const aiComments = [];
+    let lastCommentTime = 0;
+    const COMMENT_INTERVAL = 4000; // request every 4s
+    let commentFetching = false;
+
+    // --- TTS Audio Queue (Polly) ---
+    const ttsQueue = [];
+    let ttsPlaying = false;
+
+    function playNextTTS() {
+      if (ttsPlaying || ttsQueue.length === 0) return;
+      ttsPlaying = true;
+      const b64 = ttsQueue.shift();
+      try {
+        const audio = new Audio('data:audio/mp3;base64,' + b64);
+        audio.volume = 0.7;
+        audio.onended = () => { ttsPlaying = false; playNextTTS(); };
+        audio.onerror = () => { ttsPlaying = false; playNextTTS(); };
+        audio.play().catch(() => { ttsPlaying = false; playNextTTS(); });
+      } catch(e) { ttsPlaying = false; playNextTTS(); }
+    }
+
+    async function fetchTTS(text) {
+      try {
+        const resp = await fetch('/api/tts', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ text, lang })
+        });
+        const data = await resp.json();
+        if (data.audio) {
+          ttsQueue.push(data.audio);
+          playNextTTS();
+        }
+      } catch(e) { /* silent */ }
+    }
+
+    async function fetchAIComment(event) {
+      if (commentFetching) return;
+      commentFetching = true;
+      try {
+        const resp = await fetch('/api/comment', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ game: 'flappy', score, event, lang })
+        });
+        const data = await resp.json();
+        if (data.comment) {
+          aiComments.push({
+            text: data.comment,
+            x: canvas.width + 10,
+            y: 80 + Math.random() * 150,
+            speed: 1.2 + Math.random() * 0.8,
+            opacity: 1,
+            color: ['#00ff88','#ffdd44','#ff69b4','#00ffff','#ff8800','#bb77ff'][Math.floor(Math.random()*6)],
+            size: Math.floor(Math.random()*4) + 16
+          });
+          // Send to Polly TTS (non-blocking)
+          fetchTTS(data.comment);
+        }
+      } catch(e) { /* silent */ }
+      commentFetching = false;
+    }
+
+    function updateAIComments() {
+      for (let i = aiComments.length - 1; i >= 0; i--) {
+        aiComments[i].x -= aiComments[i].speed;
+        if (aiComments[i].x < -500) aiComments.splice(i, 1);
+      }
+      // Keep max 6 on screen
+      while (aiComments.length > 6) aiComments.shift();
+    }
+
+    function drawAIComments() {
+      for (const c of aiComments) {
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        const tw = ctx.measureText(c.text).width;
+        ctx.beginPath();
+        ctx.roundRect(c.x - 6, c.y - c.size + 2, tw + 12, c.size + 8, 6);
+        ctx.fill();
+        ctx.fillStyle = c.color;
+        ctx.font = `bold ${c.size}px "Segoe UI", sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.fillText(c.text, c.x, c.y);
+      }
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'center';
+    }
+
+    // --- AI Image System (Bedrock Nova Canvas) ---
+    let aiImage = null; // base64 data URL
+    let aiImageLoading = false;
+    let aiImageObj = null; // Image element
+
+    // --- Camera Capture ---
+    let cameraPhoto = null; // base64 string (no prefix)
+    let cameraStream = null;
+
+    async function captureCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 512, height: 512, facingMode: 'user' } });
+        cameraStream = stream;
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.setAttribute('playsinline', '');
+        await video.play();
+        // Wait a moment for camera to warm up
+        await new Promise(r => setTimeout(r, 500));
+        const c = document.createElement('canvas');
+        c.width = 512; c.height = 512;
+        const cx = c.getContext('2d');
+        cx.drawImage(video, 0, 0, 512, 512);
+        cameraPhoto = c.toDataURL('image/png').split(',')[1];
+        stream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+        console.log('📸 Camera: foto capturada!');
+        // Start generating cartoon immediately
+        fetchAIImage();
+      } catch(e) {
+        console.log('📷 Camera not available, using text-to-image fallback');
+        cameraPhoto = null;
+      }
+    }
+
+    async function fetchAIImage() {
+      if (aiImageLoading || aiImageObj) return;
+      aiImageLoading = true;
+      try {
+        const payload = { game: 'flappy', score, lang };
+        if (cameraPhoto) payload.photo = cameraPhoto;
+        const resp = await fetch('/api/image', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (data.image) {
+          aiImage = 'data:image/png;base64,' + data.image;
+          aiImageObj = new Image();
+          aiImageObj.src = aiImage;
+        }
+      } catch(e) { /* silent */ }
+      aiImageLoading = false;
+    }
+
+    // Game constants (base values — modified by difficulty)
+    const GRAVITY = 0.15;
+    const JUMP_POWER = -4.2;
+    const BASE_PIPE_SPEED = 1.4;
+    const BASE_PIPE_GAP = 210;
+    const BASE_SPAWN_INTERVAL = 170;
+    const PIPE_WIDTH = 60;
+
+    // Progressive difficulty — current values (recalculated each score change)
+    let currentPipeSpeed = BASE_PIPE_SPEED;
+    let currentPipeGap = BASE_PIPE_GAP;
+    let currentSpawnInterval = BASE_SPAWN_INTERVAL;
+    let difficultyLevel = 0; // 0-4, shown as label
+
+    const DIFFICULTY_COLORS = ['#00ff88', '#ffdd44', '#ff8800', '#ff4444', '#ff00ff'];
+
+    function updateDifficulty() {
+      // Every 5 points, ramp up
+      const tier = Math.min(Math.floor(score / 5), 4);
+      difficultyLevel = tier;
+      currentPipeSpeed = BASE_PIPE_SPEED + tier * 0.55;           // 1.4 → 3.6
+      currentPipeGap = Math.max(BASE_PIPE_GAP - tier * 18, 120);  // 210 → 138
+      currentSpawnInterval = Math.max(BASE_SPAWN_INTERVAL - tier * 18, 80); // 170 → 98
+    }
+
+    // --- Ranking System (Top 5, localStorage) ---
+    function loadRanking() {
+      try {
+        const data = JSON.parse(localStorage.getItem('flappyKiroRanking'));
+        return Array.isArray(data) ? data.slice(0, 5) : [];
+      } catch (e) { return []; }
+    }
+
+    function saveToRanking(newScore) {
+      const name = (localStorage.getItem('kiroPlayerName') || '').trim() || '???';
+      const entry = { game: 'flappy', score: newScore, name, date: new Date().toLocaleDateString() };
+      // Save to server file
+      fetch('/api/ranking', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(entry) })
+        .then(r => r.json()).then(top5 => { lastRanking = top5; })
+        .catch(() => {});
+      // Also update localStorage as fallback
+      const ranking = loadRanking();
+      ranking.push({ score: newScore, name, date: entry.date });
+      ranking.sort((a, b) => b.score - a.score);
+      const top5 = ranking.slice(0, 5);
+      try { localStorage.setItem('flappyKiroRanking', JSON.stringify(top5)); } catch (e) {}
+      return top5;
+    }
+
+    function loadRankingFromServer() {
+      fetch('/api/ranking?game=flappy').then(r => r.json()).then(data => {
+        if (Array.isArray(data) && data.length > 0) lastRanking = data;
+      }).catch(() => {});
+    }
+
+    // Load Kiro sprite
+    const kiroImg = new Image();
+    kiroImg.src = '../images/kiro-logo.png';
+
+    // Game state
+    let gameState = 'start'; // 'start' | 'countdown' | 'playing' | 'gameOver'
+    let score = 0;
+    let frameCount = 0;
+    let screenShake = 0;
+    let highScore = 0;
+    let isNewHighScore = false;
+    let lastRanking = [];
+
+    // Countdown state
+    let countdownValue = 3;
+    let countdownStartTime = 0;
+
+    // Kiro character
+    const kiro = {
+      x: 80,
+      y: 300,
+      width: 40,
+      height: 40,
+      velocity: 0,
+      rotation: 0
+    };
+
+    // Obstacles
+    let pipes = [];
+
+    // Particles for visual feedback
+    let particles = [];
+
+    function resetGame() {
+      kiro.y = 300;
+      kiro.velocity = 0;
+      kiro.rotation = 0;
+      pipes = [];
+      particles = [];
+      score = 0;
+      frameCount = 0;
+      screenShake = 0;
+      isNewHighScore = false;
+      currentPipeSpeed = BASE_PIPE_SPEED;
+      currentPipeGap = BASE_PIPE_GAP;
+      currentSpawnInterval = BASE_SPAWN_INTERVAL;
+      difficultyLevel = 0;
+      aiComments.length = 0;
+      ttsQueue.length = 0;
+      ttsPlaying = false;
+      aiImage = null;
+      aiImageObj = null;
+      aiImageLoading = false;
+      lastCommentTime = Date.now();
+    }
+
+    function loadHighScore() {
+      try {
+        const val = parseInt(localStorage.getItem('flappyKiroHighScore'));
+        return isNaN(val) ? 0 : val;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    function saveHighScore(score) {
+      try {
+        const current = loadHighScore();
+        if (score > current) {
+          localStorage.setItem('flappyKiroHighScore', score.toString());
+        }
+      } catch (e) {
+        // Silently fail — in-memory highScore still tracks session best
+      }
+    }
+
+    function startCountdown() {
+      if (gameState === 'start' || gameState === 'gameOver') {
+        if (gameState === 'gameOver') resetGame();
+        gameState = 'countdown';
+        countdownValue = 3;
+        countdownStartTime = Date.now();
+        KA.select(); KA.startBGM();
+      }
+    }
+
+    function jump() {
+      if (gameState === 'start') {
+        gameState = 'playing';
+        resetGame();
+        captureCamera(); // capture photo early
+      } else if (gameState === 'playing') {
+        kiro.velocity = JUMP_POWER;
+        KA.jump();
+        // Spawn jump particles
+        for (let i = 0; i < 5; i++) {
+          particles.push({
+            x: kiro.x + kiro.width / 2,
+            y: kiro.y + kiro.height / 2,
+            vx: (Math.random() - 0.5) * 3,
+            vy: Math.random() * 2 + 1,
+            life: 20,
+            maxLife: 20,
+            color: '#790ECB',
+            type: 'jump',
+            radius: 3
+          });
+        }
+      } else if (gameState === 'gameOver') {
+        gameState = 'start';
+        resetGame();
+      }
+    }
+
+    function emitTrailParticles() {
+      const count = Math.floor(Math.random() * 2) + 1; // 1-2 particles
+      for (let i = 0; i < count; i++) {
+        const life = Math.floor(Math.random() * 11) + 15; // 15-25
+        particles.push({
+          x: kiro.x,
+          y: kiro.y + kiro.height / 2,
+          vx: -(Math.random() * 1.0 + 0.5),   // -1.5 to -0.5
+          vy: Math.random() * 0.5 + 0.3,       // 0.3 to 0.8
+          life: life,
+          maxLife: life,
+          color: '#790ECB',
+          type: 'trail',
+          radius: Math.random() * 1 + 2         // 2-3
+        });
+      }
+    }
+
+    function spawnExplosion(x, y) {
+      const count = Math.floor(Math.random() * 11) + 20; // 20-30
+      const colors = ['#ff4444', '#ff8800', '#790ECB'];
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 4 + 2; // 2-6
+        const life = Math.floor(Math.random() * 16) + 25; // 25-40
+        particles.push({
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: life,
+          maxLife: life,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          type: 'explosion',
+          radius: Math.random() * 3 + 2 // 2-5
+        });
+      }
+    }
+
+    function spawnSparkles(x, y) {
+      const count = Math.floor(Math.random() * 5) + 8; // 8-12
+      const colors = ['#ffffff', '#bb77ff', '#ffdd44'];
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 2 + 1; // 1-3
+        const life = Math.floor(Math.random() * 11) + 20; // 20-30
+        particles.push({
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: life,
+          maxLife: life,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          type: 'sparkle',
+          radius: Math.random() * 2 + 2 // 2-4
+        });
+      }
+    }
+
+    function spawnConfetti() {
+      const count = Math.floor(Math.random() * 21) + 40; // 40-60
+      const colors = ['#ffd700', '#ff69b4', '#00ffff', '#00ff00', '#790ECB'];
+      for (let i = 0; i < count; i++) {
+        const life = Math.floor(Math.random() * 41) + 80; // 80-120
+        const rawRotSpeed = (Math.random() - 0.5) * 0.2;
+        const rotationSpeed = Math.abs(rawRotSpeed) < 0.01 ? 0.05 : rawRotSpeed;
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * 20,           // 0-20 (top of canvas)
+          vx: (Math.random() - 0.5),       // -0.5 to 0.5
+          vy: Math.random() * 1.0 + 0.5,   // 0.5-1.5 (downward)
+          life: life,
+          maxLife: life,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          type: 'confetti',
+          width: Math.random() * 3 + 3,    // 3-6
+          height: Math.random() * 4 + 6,   // 6-10
+          rotation: 0,
+          rotationSpeed: rotationSpeed
+        });
+      }
+    }
+
+    function spawnPipe() {
+      const minTop = 80;
+      const maxTop = canvas.height - currentPipeGap - 80;
+      const topHeight = Math.random() * (maxTop - minTop) + minTop;
+      pipes.push({
+        x: canvas.width,
+        topHeight: topHeight,
+        gap: currentPipeGap, // store gap at spawn time
+        scored: false
+      });
+    }
+
+    function checkCollision() {
+      // Floor and ceiling
+      if (kiro.y + kiro.height > canvas.height || kiro.y < 0) return true;
+
+      for (const pipe of pipes) {
+        const gap = pipe.gap || currentPipeGap;
+        const inXRange = kiro.x + kiro.width > pipe.x && kiro.x < pipe.x + PIPE_WIDTH;
+        const hitsTop = kiro.y < pipe.topHeight;
+        const hitsBottom = kiro.y + kiro.height > pipe.topHeight + gap;
+        if (inXRange && (hitsTop || hitsBottom)) return true;
+      }
+      return false;
+    }
+
+    function update() {
+      // Handle countdown timer
+      if (gameState === 'countdown') {
+        const elapsed = Date.now() - countdownStartTime;
+        const _prevCD = countdownValue;
+        countdownValue = 3 - Math.floor(elapsed / 1000);
+        if(countdownValue !== _prevCD && countdownValue > 0) KA.countdown();
+        if (countdownValue <= 0) {
+          KA.go();
+          gameState = 'playing';
+          resetGame();
+        }
+        return;
+      }
+
+      if (gameState !== 'playing') return;
+
+      frameCount++;
+
+      // Kiro physics
+      kiro.velocity += GRAVITY;
+      kiro.y += kiro.velocity;
+      kiro.rotation = Math.min(kiro.velocity * 3, 90);
+
+      // Spawn pipes
+      if (frameCount % currentSpawnInterval === 0) spawnPipe();
+
+      // Emit trail particles behind Kiro
+      emitTrailParticles();
+
+      // Move pipes
+      for (let i = pipes.length - 1; i >= 0; i--) {
+        pipes[i].x -= currentPipeSpeed;
+
+        // Score
+        const gap = pipes[i].gap || currentPipeGap;
+        if (!pipes[i].scored && pipes[i].x + PIPE_WIDTH < kiro.x) {
+          pipes[i].scored = true;
+          score++;
+          KA.score();
+          updateDifficulty();
+          spawnSparkles(pipes[i].x + PIPE_WIDTH, pipes[i].topHeight + gap / 2);
+        }
+
+        // Remove off-screen pipes
+        if (pipes[i].x + PIPE_WIDTH < 0) pipes.splice(i, 1);
+      }
+
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].x += particles[i].vx;
+        particles[i].y += particles[i].vy;
+        particles[i].life--;
+
+        // Confetti-specific: apply gravity and rotation
+        if (particles[i].type === 'confetti') {
+          particles[i].vy += 0.02;
+          particles[i].rotation += particles[i].rotationSpeed;
+        }
+
+        if (particles[i].life <= 0) particles.splice(i, 1);
+      }
+
+      // Collision
+      if (checkCollision()) {
+        // High score comparison and persistence
+        if (score > highScore) {
+          isNewHighScore = true;
+          highScore = score;
+          spawnConfetti();
+        }
+        saveHighScore(score);
+        lastRanking = saveToRanking(score);
+
+        spawnExplosion(kiro.x + kiro.width / 2, kiro.y + kiro.height / 2);
+        gameState = 'gameOver';
+        screenShake = 10;
+        KA.hit(); KA.stopBGM();
+        // AI: fetch game over comment + image
+        fetchAIComment('crashed! final score ' + score);
+        fetchAIImage();
+      }
+
+      // Decay screen shake
+      if (screenShake > 0) screenShake *= 0.9;
+
+      // AI comments — fetch periodically during play
+      updateAIComments();
+      const now2 = Date.now();
+      if (now2 - lastCommentTime > COMMENT_INTERVAL) {
+        lastCommentTime = now2;
+        const events = ['flying','dodging pipes','gaining altitude','close call','going strong','in the zone'];
+        if (score > 0 && score % 5 === 0) fetchAIComment('milestone score ' + score);
+        else fetchAIComment(events[Math.floor(Math.random()*events.length)]);
+      }
+    }
+
+    function drawBackground() {
+      // Dark gradient background
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, '#0d0d1a');
+      grad.addColorStop(1, '#1a0a2e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Subtle grid lines
+      ctx.strokeStyle = 'rgba(121, 14, 203, 0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawPipes() {
+      for (const pipe of pipes) {
+        const gap = pipe.gap || currentPipeGap;
+        // Top pipe
+        const topGrad = ctx.createLinearGradient(pipe.x, 0, pipe.x + PIPE_WIDTH, 0);
+        topGrad.addColorStop(0, '#5a0a99');
+        topGrad.addColorStop(0.5, '#790ECB');
+        topGrad.addColorStop(1, '#5a0a99');
+        ctx.fillStyle = topGrad;
+        ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+
+        // Top pipe cap
+        ctx.fillStyle = '#9b30ff';
+        ctx.fillRect(pipe.x - 4, pipe.topHeight - 20, PIPE_WIDTH + 8, 20);
+
+        // Bottom pipe
+        ctx.fillStyle = topGrad;
+        const bottomY = pipe.topHeight + gap;
+        ctx.fillRect(pipe.x, bottomY, PIPE_WIDTH, canvas.height - bottomY);
+
+        // Bottom pipe cap
+        ctx.fillStyle = '#9b30ff';
+        ctx.fillRect(pipe.x - 4, bottomY, PIPE_WIDTH + 8, 20);
+
+        // Pipe glow
+        ctx.shadowColor = '#790ECB';
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = 'rgba(121, 14, 203, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+        ctx.strokeRect(pipe.x, bottomY, PIPE_WIDTH, canvas.height - bottomY);
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    function drawKiro() {
+      ctx.save();
+      ctx.translate(kiro.x + kiro.width / 2, kiro.y + kiro.height / 2);
+      const rad = (kiro.rotation * Math.PI) / 180;
+      ctx.rotate(Math.min(rad, Math.PI / 4));
+
+      if (kiroImg.complete && kiroImg.naturalWidth > 0) {
+        ctx.drawImage(kiroImg, -kiro.width / 2, -kiro.height / 2, kiro.width, kiro.height);
+      } else {
+        // Fallback circle
+        ctx.fillStyle = '#790ECB';
+        ctx.beginPath();
+        ctx.arc(0, 0, kiro.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('K', 0, 5);
+      }
+      ctx.restore();
+    }
+
+    function drawParticles() {
+      for (const p of particles) {
+        const maxLife = p.maxLife || 20;
+        const opacity = p.life / maxLife;
+        ctx.globalAlpha = opacity;
+        ctx.fillStyle = p.color;
+
+        if (p.type === 'confetti') {
+          // Render rectangle with rotation for confetti
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation || 0);
+          ctx.fillRect(-(p.width || 4) / 2, -(p.height || 8) / 2, p.width || 4, p.height || 8);
+          ctx.restore();
+        } else {
+          // Render circle for trail, explosion, sparkle, jump, and legacy particles
+          const radius = p.radius || 3;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawScore() {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 36px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#790ECB';
+      ctx.shadowBlur = 15;
+      ctx.fillText(score, canvas.width / 2, 60);
+      ctx.shadowBlur = 0;
+
+      // Difficulty label top-left (bigger, more prominent)
+      if (gameState === 'playing') {
+        ctx.fillStyle = DIFFICULTY_COLORS[difficultyLevel];
+        ctx.font = 'bold 20px "Segoe UI", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(t('diffLabels')[difficultyLevel], 15, 35);
+      }
+
+      // High score in smaller font at top-right
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = '16px "Segoe UI", sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(t('highScore') + ': ' + highScore, canvas.width - 15, 30);
+    }
+
+    function drawStartScreen() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Title
+      ctx.fillStyle = '#790ECB';
+      ctx.font = 'bold 48px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#790ECB';
+      ctx.shadowBlur = 20;
+      ctx.fillText(t('title'), canvas.width / 2, 140);
+      ctx.shadowBlur = 0;
+
+      // Logo preview
+      if (kiroImg.complete && kiroImg.naturalWidth > 0) {
+        ctx.drawImage(kiroImg, canvas.width / 2 - 30, 160, 60, 60);
+      }
+
+      // Difficulty info
+      ctx.fillStyle = '#00ff88';
+      ctx.font = 'bold 16px "Segoe UI", sans-serif';
+      ctx.fillText(t('diffLabels')[0] + ' → ' + t('diffLabels')[4], canvas.width / 2, 240);
+
+      // Instructions
+      ctx.fillStyle = '#c0c0c0';
+      ctx.font = '18px "Segoe UI", sans-serif';
+      ctx.fillText(t('pressToFly'), canvas.width / 2, 270);
+
+      // --- Ranking on start screen ---
+      const ranking = loadRanking();
+      if (ranking.length > 0) {
+        ctx.fillStyle = '#790ECB';
+        ctx.font = 'bold 20px "Segoe UI", sans-serif';
+        ctx.fillText(t('ranking'), canvas.width / 2, 320);
+
+        for (let i = 0; i < ranking.length; i++) {
+          const entry = ranking[i];
+          const y = 350 + i * 28;
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.font = '15px "Segoe UI", sans-serif';
+          ctx.fillText(`${medal} #${i + 1}  ${entry.score} ${t('pts')}  —  ${entry.name || '???'}  ${entry.date}`, canvas.width / 2, y);
+        }
+      } else {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.font = '18px "Segoe UI", sans-serif';
+        ctx.fillText(t('highScore') + ': ' + highScore, canvas.width / 2, 320);
+      }
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#ff4444';
+      ctx.font = 'bold 48px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(t('gameOver'), canvas.width / 2, 110);
+
+      // "New High Score!" label when applicable
+      if (isNewHighScore) {
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 24px "Segoe UI", sans-serif';
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 10;
+        ctx.fillText(t('newHigh'), canvas.width / 2, 150);
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 32px "Segoe UI", sans-serif';
+      ctx.fillText(t('score') + ': ' + score, canvas.width / 2, 195);
+
+      // Difficulty reached
+      ctx.fillStyle = DIFFICULTY_COLORS[difficultyLevel];
+      ctx.font = 'bold 18px "Segoe UI", sans-serif';
+      ctx.fillText(t('difficulty') + ': ' + t('diffLabels')[difficultyLevel], canvas.width / 2, 225);
+
+      // --- Ranking ---
+      ctx.fillStyle = '#790ECB';
+      ctx.font = 'bold 22px "Segoe UI", sans-serif';
+      ctx.fillText(t('ranking'), canvas.width / 2, 275);
+
+      const ranking = lastRanking.length > 0 ? lastRanking : loadRanking();
+      if (ranking.length === 0) {
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.font = '16px "Segoe UI", sans-serif';
+        ctx.fillText(t('noScores'), canvas.width / 2, 305);
+      } else {
+        for (let i = 0; i < ranking.length; i++) {
+          const entry = ranking[i];
+          const y = 305 + i * 30;
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
+          const isCurrentScore = entry.score === score && i === ranking.findIndex(r => r.score === score);
+
+          ctx.fillStyle = isCurrentScore ? '#ffd700' : 'rgba(255,255,255,0.8)';
+          ctx.font = isCurrentScore ? 'bold 17px "Segoe UI", sans-serif' : '16px "Segoe UI", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${medal} #${i + 1}  ${entry.score} ${t('pts')}  —  ${entry.name || '???'}  ${entry.date}`, canvas.width / 2, y);
+        }
+      }
+
+      // --- Big action buttons ---
+      const actY = 500;
+
+      // Restart button
+      ctx.fillStyle = 'rgba(0, 255, 136, 0.15)';
+      ctx.strokeStyle = '#00ff88';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(canvas.width/2 - 280, actY, 560, 60, 12);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#00ff88';
+      ctx.font = 'bold 24px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(t('openRestart'), canvas.width / 2, actY + 38);
+
+      // Menu button
+      ctx.fillStyle = 'rgba(255, 221, 68, 0.15)';
+      ctx.strokeStyle = '#ffdd44';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(canvas.width/2 - 280, actY + 80, 560, 60, 12);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffdd44';
+      ctx.font = 'bold 24px "Segoe UI", sans-serif';
+      ctx.fillText(t('fistMenu'), canvas.width / 2, actY + 80 + 38);
+
+      // Small keyboard hint
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.font = '15px "Segoe UI", sans-serif';
+      ctx.fillText(t('spaceRetry'), canvas.width / 2, actY + 165);
+
+      // AI Generated Image
+      if (aiImageObj && aiImageObj.complete && aiImageObj.naturalWidth > 0) {
+        const imgSize = 260;
+        const imgX = canvas.width / 2 - imgSize / 2;
+        const imgY = actY + 185;
+        // Glow border
+        ctx.shadowColor = '#790ECB';
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = '#790ECB';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(imgX - 3, imgY - 3, imgSize + 6, imgSize + 6, 12);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        // Clip rounded
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(imgX, imgY, imgSize, imgSize, 10);
+        ctx.clip();
+        ctx.drawImage(aiImageObj, imgX, imgY, imgSize, imgSize);
+        ctx.restore();
+        // Label
+        ctx.fillStyle = '#790ECB';
+        ctx.font = 'bold 13px "Segoe UI", sans-serif';
+        ctx.fillText('🤖 Generated by Nova Canvas', canvas.width / 2, imgY + imgSize + 18);
+      } else if (aiImageLoading) {
+        ctx.fillStyle = 'rgba(121,14,203,0.6)';
+        ctx.font = '15px "Segoe UI", sans-serif';
+        ctx.fillText('🎨 ' + (lang === 'es' ? 'Generando imagen con IA...' : 'Generating AI image...'), canvas.width / 2, actY + 195);
+      }
+    }
+
+    function drawCountdown() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Pulsing countdown number
+      const elapsed = Date.now() - countdownStartTime;
+      const withinSecond = (elapsed % 1000) / 1000;
+      const scale = 1 + (1 - withinSecond) * 0.3; // Pulse effect
+
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.scale(scale, scale);
+
+      ctx.fillStyle = '#790ECB';
+      ctx.font = 'bold 120px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#790ECB';
+      ctx.shadowBlur = 30;
+      ctx.fillText(countdownValue, 0, 0);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      ctx.fillStyle = '#c0c0c0';
+      ctx.font = '20px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(t('getReady'), canvas.width / 2, canvas.height / 2 + 100);
+    }
+
+    function draw() {
+      ctx.save();
+
+      // Screen shake
+      if (screenShake > 0.5) {
+        const shakeX = (Math.random() - 0.5) * screenShake;
+        const shakeY = (Math.random() - 0.5) * screenShake;
+        ctx.translate(shakeX, shakeY);
+      }
+
+      drawBackground();
+      drawPipes();
+      drawKiro();
+      drawParticles();
+      drawScore();
+
+      // AI floating comments
+      if (gameState === 'playing') drawAIComments();
+
+      ctx.restore();
+
+      if (gameState === 'start') drawStartScreen();
+      if (gameState === 'countdown') drawCountdown();
+      if (gameState === 'gameOver') { updateAIComments(); drawGameOver(); drawAIComments(); }
+
+      // Fist-back-to-menu progress bar
+      if (fistHoldStart > 0) {
+        const prog = Math.min((Date.now()-fistHoldStart)/FIST_BACK_MS, 1);
+        const bw = 400, bh = 24, bx = canvas.width/2-bw/2, by = canvas.height-35;
+        ctx.fillStyle='rgba(0,0,0,0.7)';ctx.beginPath();ctx.roundRect(bx-4,by-4,bw+8,bh+8,8);ctx.fill();
+        ctx.fillStyle='#790ECB';ctx.beginPath();ctx.roundRect(bx,by,bw*prog,bh,6);ctx.fill();
+        ctx.fillStyle='#fff';ctx.font='bold 16px "Segoe UI", sans-serif';ctx.textAlign='center';
+        ctx.fillText(t('holdBack'),canvas.width/2,by-10);
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Input handlers
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        jump();
+      }
+      if (e.code === 'KeyM') KA.toggle();
+    });
+
+    canvas.addEventListener('click', jump);
+
+    // --- Hand Recognition with MediaPipe Tasks-Vision ---
+    let handOpen = false;
+    let prevHandOpen = false;
+    let handDetected = false;
+    let handHoldStart = 0;
+    let handCountdownActive = false;
+    let lastHandSeenTime = 0;       // timestamp of last successful detection
+    let lastHandOpen = false;        // last known open/closed state
+    let lastHandLandmarks = null;    // last known landmarks for skeleton
+    const HAND_GRACE_MS = 400;       // keep last hand state for 400ms after detection drops
+    let lastAutoFlapTime = 0;        // timestamp of last auto-flap
+    const AUTO_FLAP_INTERVAL = 300;  // auto-flap every 300ms while hand is open
+    let fistHoldStart = 0;           // for back-to-menu gesture
+    const FIST_BACK_MS = 3000;       // hold fist 3s to go back
+
+    // Clean navigation: stop camera before leaving
+    let _navigating = false;
+    function goToMenu() {
+      if (_navigating) return;
+      _navigating = true;
+      KA.stopBGM();
+      try {
+        const video = document.getElementById('webcam');
+        if (video && video.srcObject) {
+          video.srcObject.getTracks().forEach(tr => tr.stop());
+          video.srcObject = null;
+        }
+      } catch(e) {}
+      setTimeout(() => { window.location.href = 'index.html'; }, 50);
+    }
+
+    // Overlay canvas for drawing hand skeleton
+    const overlayCanvas = document.getElementById('hand-overlay');
+    const overlayCtx = overlayCanvas.getContext('2d');
+
+    function drawHandLandmarks(landmarks) {
+      overlayCanvas.width = overlayCanvas.offsetWidth;
+      overlayCanvas.height = overlayCanvas.offsetHeight;
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      if (!landmarks || landmarks.length === 0) return;
+
+      const w = overlayCanvas.width;
+      const h = overlayCanvas.height;
+
+      // Draw connections (skeleton lines)
+      const connections = window._mpHandConnections;
+      if (connections) {
+        overlayCtx.strokeStyle = '#790ECB';
+        overlayCtx.lineWidth = 2;
+        for (const conn of connections) {
+          const start = landmarks[conn[0]];
+          const end = landmarks[conn[1]];
+          if (!start || !end) continue;
+          overlayCtx.beginPath();
+          overlayCtx.moveTo(start.x * w, start.y * h);
+          overlayCtx.lineTo(end.x * w, end.y * h);
+          overlayCtx.stroke();
+        }
+      }
+
+      // Draw landmark dots
+      for (const lm of landmarks) {
+        overlayCtx.fillStyle = '#00ff88';
+        overlayCtx.beginPath();
+        overlayCtx.arc(lm.x * w, lm.y * h, 3, 0, Math.PI * 2);
+        overlayCtx.fill();
+      }
+    }
+
+    function isHandOpenCheck(landmarks) {
+      // Fingers: tip should be ABOVE (lower y value) pip when extended
+      const fingers = [
+        { tip: 8, pip: 6 },   // index
+        { tip: 12, pip: 10 }, // middle
+        { tip: 16, pip: 14 }, // ring
+        { tip: 20, pip: 18 }  // pinky
+      ];
+      let extended = 0;
+      for (const f of fingers) {
+        if (landmarks[f.tip].y < landmarks[f.pip].y) extended++;
+      }
+      // Thumb: tip further from palm than ip joint
+      const thumbDist = Math.abs(landmarks[4].x - landmarks[2].x);
+      if (thumbDist > 0.03) extended++;
+      return extended >= 4;
+    }
+
+    function handleHandGesture() {
+      const statusEl = document.getElementById('hand-status');
+      const now = Date.now();
+
+      if (handOpen) {
+        // Reset fist hold only after sustained open (debounce)
+        if (fistHoldStart > 0 && now - fistHoldStart > 500) {
+          // Only reset if hand has been open for a bit — avoids flicker resets
+          fistHoldStart = 0;
+        }
+
+        if (gameState === 'start' || gameState === 'gameOver') {
+          if (!handHoldStart) handHoldStart = now;
+          const held = (now - handHoldStart) / 1000;
+          const remaining = Math.ceil(1.5 - held);
+
+          if (held >= 1.5 && !handCountdownActive) {
+            handCountdownActive = true;
+            handHoldStart = 0;
+            fistHoldStart = 0;
+            startCountdown();
+            statusEl.textContent = t('starting');
+            statusEl.style.color = '#00ff88';
+            return;
+          }
+          statusEl.textContent = `${t('holdStart')} ${remaining}s`;
+          statusEl.style.color = '#ffdd44';
+          return;
+        }
+
+        // During gameplay: auto-flap while hand is open
+        if (gameState === 'playing') {
+          if (now - lastAutoFlapTime >= AUTO_FLAP_INTERVAL) {
+            lastAutoFlapTime = now;
+            jump();
+          }
+        }
+        statusEl.textContent = t('handOpen');
+        statusEl.style.color = '#00ff88';
+      } else {
+        handHoldStart = 0;
+        if (gameState === 'start' || gameState === 'gameOver') {
+          handCountdownActive = false;
+          // Fist hold to go back to menu
+          if (handDetected) {
+            if (fistHoldStart === 0) fistHoldStart = now;
+            else if (now - fistHoldStart >= FIST_BACK_MS) { goToMenu(); return; }
+            statusEl.textContent = t('holdBack');
+            statusEl.style.color = '#ffdd44';
+            return;
+          } else { fistHoldStart = 0; }
+        } else { fistHoldStart = 0; }
+        statusEl.textContent = handDetected ? t('handClosed') : t('noHand');
+        statusEl.style.color = '#c0c0c0';
+      }
+    }
+
+    // Hand connection pairs for skeleton drawing
+    window._mpHandConnections = [
+      [0,1],[1,2],[2,3],[3,4],
+      [0,5],[5,6],[6,7],[7,8],
+      [0,9],[9,10],[10,11],[11,12],
+      [0,13],[13,14],[14,15],[15,16],
+      [0,17],[17,18],[18,19],[19,20],
+      [5,9],[9,13],[13,17]
+    ];
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.crossOrigin = 'anonymous';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    async function initHandDetection() {
+      const video = document.getElementById('webcam');
+      const statusEl = document.getElementById('hand-status');
+
+      // Step 1: Get camera
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 320, height: 240, facingMode: 'user' }
+        });
+        video.srcObject = stream;
+        await new Promise(r => { video.onloadedmetadata = r; });
+        await video.play();
+        statusEl.textContent = t('camReady');
+      } catch (err) {
+        statusEl.textContent = t('noCam');
+        return;
+      }
+
+      // Step 2: Import tasks-vision
+      let HandLandmarker, FilesetResolver;
+      try {
+        const mod = await import(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs'
+        );
+        HandLandmarker = mod.HandLandmarker;
+        FilesetResolver = mod.FilesetResolver;
+        if (HandLandmarker.HAND_CONNECTIONS) {
+          window._mpHandConnections = HandLandmarker.HAND_CONNECTIONS.map(c => [c.start, c.end]);
+        }
+      } catch (err) {
+        statusEl.textContent = '❌ Module load failed';
+        return;
+      }
+
+      // Step 3: Load WASM fileset
+      let vision;
+      try {
+        vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'
+        );
+      } catch (err) {
+        statusEl.textContent = '❌ WASM load failed';
+        return;
+      }
+
+      // Step 4: Create HandLandmarker
+      let handLandmarker;
+      const modelUrl = 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+
+      for (const delegate of ['GPU', 'CPU']) {
+        try {
+          handLandmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: modelUrl, delegate: delegate },
+            runningMode: 'VIDEO',
+            numHands: 1,
+            minHandDetectionConfidence: 0.3,
+            minHandPresenceConfidence: 0.3,
+            minTrackingConfidence: 0.3
+          });
+          break;
+        } catch (err) {
+          handLandmarker = null;
+        }
+      }
+
+      if (!handLandmarker) {
+        statusEl.textContent = t('modelFail');
+        return;
+      }
+
+      statusEl.textContent = t('ready');
+
+      // Step 5: Detection loop
+      let lastTime = -1;
+      function detect() {
+        if (video.readyState >= 2) {
+          const now = performance.now();
+          if (now > lastTime) {
+            lastTime = now;
+            try {
+              const results = handLandmarker.detectForVideo(video, now);
+
+              prevHandOpen = handOpen;
+              if (results.landmarks && results.landmarks.length > 0) {
+                handDetected = true;
+                lastHandSeenTime = Date.now();
+                const lm = results.landmarks[0];
+                lastHandLandmarks = lm;
+
+                handOpen = isHandOpenCheck(lm);
+                lastHandOpen = handOpen;
+                drawHandLandmarks(lm);
+              } else {
+                const timeSinceLast = Date.now() - lastHandSeenTime;
+                if (lastHandSeenTime > 0 && timeSinceLast < HAND_GRACE_MS) {
+                  handOpen = lastHandOpen;
+                  handDetected = true;
+                  if (lastHandLandmarks) drawHandLandmarks(lastHandLandmarks);
+                } else {
+                  handDetected = false;
+                  handOpen = false;
+                  lastHandLandmarks = null;
+                  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                }
+              }
+              handleHandGesture();
+            } catch (err) {}
+          }
+        }
+        requestAnimationFrame(detect);
+      }
+      detect();
+    }
+
+    // Start the loop
+    highScore = loadHighScore();
+    loadRankingFromServer();
+    gameLoop();
+
+    // Init hand detection (non-blocking)
+    initHandDetection();
+  </script>
+</body>
+</html>
