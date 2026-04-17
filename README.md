@@ -1,49 +1,61 @@
 # 🎮 Kiro Arcade
 
-A browser-based arcade built for the Kiro AI workshop. Players choose from 4 mini-games using hand gestures via webcam, powered by MediaPipe hand detection and AWS Bedrock AI.
+> 🇬🇧 [English version](README_en.md)
 
-## Games
+Una arcade en el navegador creada para el workshop de Kiro AI. Los jugadores eligen entre 4 minijuegos usando gestos de mano a través de la webcam, impulsado por detección de manos con MediaPipe e IA de AWS Bedrock.
 
-- **Flappy Kiro** ☝️ — Flappy Bird clone with the Kiro logo as the player sprite
-- **Fruit Ninja** ✊ — Slice fruit before it falls off screen
-- **Rock Paper Scissors** 👌 — Play against Kiro AI using hand gestures
-- **Ghost Dodge** 🖐️ — Dodge incoming ghosts as long as you can
+## Juegos
 
-## Features
+- **Flappy Kiro** ☝️ — Clon de Flappy Bird con el logo de Kiro como personaje
+- **Fruit Ninja** ✊ — Corta frutas antes de que caigan de la pantalla
+- **Piedra Papel Tijera** 👌 — Juega contra la IA de Kiro usando gestos de mano
+- **Ghost Dodge** 🖐️ — Esquiva fantasmas entrantes el mayor tiempo posible
 
-- Hand gesture game selection (no keyboard needed)
-- Per-game leaderboards stored as JSON files on the server
-- AI-generated comments and images via AWS Bedrock (Nova Lite + Nova Canvas)
-- Text-to-speech via Amazon Polly
-- "Aprende Kiro" modal with intro, guided demo, and learn-by-playing guide
-- Bilingual UI (Spanish / English)
+## Funcionalidades
 
-## Requirements
+- Selección de juego por gestos de mano (sin teclado)
+- Clasificaciones por juego almacenadas como archivos JSON en el servidor
+- Comentarios e imágenes generados por IA con AWS Bedrock (Nova Lite + Nova Canvas)
+- Texto a voz con Amazon Polly
+- Modal "Aprende Kiro" con introducción, demo guiada y guía de aprendizaje jugando
+- Interfaz bilingüe (español / inglés)
+
+## Requisitos
 
 - Python 3.8+
-- AWS credentials configured with access to Bedrock and Polly (profile: `kiro-arcade`)
+- Firefox (navegador recomendado — necesario para compatibilidad con webcam/MediaPipe)
+- Puerto 8000 disponible en tu máquina
+- Credenciales AWS configuradas con acceso a Bedrock y Polly (perfil: `kiro-arcade`)
 
-## Getting started
+## Cómo arrancar
+
+1. Instala las dependencias:
+
+```bash
+pip install -r requirements.txt
+```
+
+2. Inicia el servidor:
 
 ```bash
 python server.py
 ```
 
-Open [http://localhost:8000](http://localhost:8000) in your browser.
+3. Abre [http://localhost:8000](http://localhost:8000) en Firefox.
 
-## Project structure
+## Estructura del proyecto
 
 ```
 /
-├── index.html        # Main arcade menu
-├── server.py         # Static file server + AI API endpoints
-├── src/              # Game files (flappy, fruit-ninja, rps, ghost-dodge)
-├── images/           # Sprites and assets
-├── videos/           # Demo and tutorial videos
-├── docs/             # Playbook and project docs
-└── rankings/         # Per-game leaderboard JSON files
+├── index.html        # Menú principal de la arcade
+├── server.py         # Servidor de archivos estáticos + endpoints de IA
+├── src/              # Archivos de juegos (flappy, fruit-ninja, rps, ghost-dodge)
+├── images/           # Sprites y assets
+├── videos/           # Vídeos de demo y tutoriales
+├── docs/             # Playbook y documentación del proyecto
+└── rankings/         # Archivos JSON de clasificaciones por juego
 ```
 
-## Disclaimer
+## Aviso legal
 
-This project is an independent demo created for educational and workshop purposes. It is not affiliated with, endorsed by, or representative of Amazon Web Services (AWS) or any of its products. Any use of AWS services (Amazon Bedrock, Amazon Polly, etc.) is solely the responsibility of the user. AWS is not responsible for the content, functionality, or any outcomes resulting from the use of this project.
+Este proyecto es una demo independiente creada con fines educativos y para workshops. No está afiliado, respaldado ni es representativo de Amazon Web Services (AWS) ni de ninguno de sus productos. El uso de los servicios de AWS (Amazon Bedrock, Amazon Polly, etc.) es responsabilidad exclusiva del usuario. AWS no es responsable del contenido, la funcionalidad ni de ningún resultado derivado del uso de este proyecto.
