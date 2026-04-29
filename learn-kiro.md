@@ -2,7 +2,7 @@
 
 > Tu IDE con IA para construir más rápido
 
-![Kiro Logo](images/kiro-logo.png)
+<img src="images/kiro-logo.png" alt="Kiro Logo" width="80" style="background:#0a0a0a;border-radius:50%;padding:4px;">
 
 ## ¿Qué es Kiro?
 
