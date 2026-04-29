@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aprende sobre Kiro</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a; font-family: 'Segoe UI', sans-serif;
+      color: #fff; min-height: 100vh;
+      background: linear-gradient(160deg, #0d0d1a 0%, #1a0a2e 100%);
+    }
+    .container {
+      max-width: 800px; margin: 0 auto;
+      padding: 40px 24px 60px;
+    }
+    .logo-header {
+      display: flex; align-items: center; gap: 16px;
+      margin-bottom: 32px;
+    }
+    .logo-header img {
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 2px solid #790ECB;
+      box-shadow: 0 0 20px rgba(121,14,203,0.5);
+    }
+    h1 {
+      font-size: 36px; color: #790ECB;
+      text-shadow: 0 0 20px rgba(121,14,203,0.5);
+      margin-bottom: 4px;
+    }
+    .subtitle { color: rgba(255,255,255,0.5); font-size: 16px; }
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(121,14,203,0.25);
+      border-radius: 16px; padding: 28px 32px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 30px rgba(121,14,203,0.08);
+    }
+    .card h2 {
+      font-size: 22px; color: #c084fc; margin-bottom: 12px;
+    }
+    .card p {
+      color: rgba(255,255,255,0.7); font-size: 15px;
+      line-height: 1.7; margin-bottom: 12px;
+    }
+    .card ul {
+      color: rgba(255,255,255,0.65); font-size: 14px;
+      line-height: 1.8; padding-left: 20px; margin-bottom: 12px;
+    }
+    .card a { color: #c084fc; text-decoration: none; }
+    .card a:hover { text-decoration: underline; }
+    .feature-pills {
+      display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0;
+    }
+    .pill {
+      background: rgba(121,14,203,0.2);
+      border: 1px solid rgba(121,14,203,0.4);
+      border-radius: 20px; padding: 6px 16px;
+      font-size: 13px; color: #c084fc;
+    }
+    .highlight-box {
+      background: rgba(121,14,203,0.08);
+      border: 1px solid rgba(121,14,203,0.3);
+      border-radius: 12px; padding: 16px 20px; margin: 14px 0;
+    }
+    .highlight-box p { margin-bottom: 4px; }
+    .qr-section {
+      display: flex; align-items: center; gap: 24px;
+      background: rgba(121,14,203,0.08);
+      border: 1px solid rgba(121,14,203,0.3);
+      border-radius: 12px; padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .qr-section canvas { border-radius: 8px; flex-shrink: 0; }
+    .qr-section .qr-text h4 { font-size: 17px; margin-bottom: 6px; }
+    .qr-section .qr-text p {
+      font-size: 14px; color: rgba(255,255,255,0.5); margin: 0;
+    }
+    .credits-badge {
+      display: inline-block; background: rgba(0,255,136,0.12);
+      border: 1px solid rgba(0,255,136,0.4); border-radius: 8px;
+      padding: 4px 14px; font-size: 18px; font-weight: 700;
+      color: #00ff88; margin: 4px 0;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 32px; border-radius: 12px; border: none;
+      font-size: 18px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; font-family: 'Segoe UI', sans-serif;
+      text-decoration: none;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary {
+      background: linear-gradient(135deg, #790ECB, #9b30e8);
+      color: #fff; box-shadow: 0 0 20px rgba(121,14,203,0.4);
+    }
+    .btn-secondary {
+      background: rgba(121,14,203,0.15); color: #c084fc;
+      border: 1px solid rgba(121,14,203,0.5);
+    }
+    .btn-row {
+      display: flex; gap: 14px; margin-top: 24px;
+      flex-wrap: wrap; justify-content: center;
+    }
+    .tag {
+      display: inline-block; background: rgba(0,255,136,0.1);
+      border: 1px solid rgba(0,255,136,0.3); border-radius: 6px;
+      padding: 3px 10px; font-size: 12px; color: #6ee7b7;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="logo-header">
+      <img src="images/kiro-logo.png" alt="Kiro" onerror="this.style.display='none'">
+      <div>
+        <h1>✨ Aprende sobre Kiro</h1>
+        <p class="subtitle">Tu IDE con IA para construir más rápido</p>
+      </div>
+    </div>
+
+    <!-- Qué es Kiro -->
+    <div class="card">
+      <h2>¿Qué es Kiro?</h2>
+      <p>Kiro es un IDE (entorno de desarrollo integrado) potenciado por inteligencia artificial, creado por AWS. Está diseñado para que desarrolladores y desarrolladoras de todos los niveles construyan software más rápido y con mayor calidad.</p>
+      <p>Combina un editor de código inteligente con un agente de IA que entiende tu proyecto completo: genera código, escribe tests, detecta errores y te guía paso a paso en la implementación.</p>
+    </div>
+
+    <!-- Capacidades -->
+    <div class="card">
+      <h2>🛠️ Capacidades clave</h2>
+      <div class="feature-pills">
+        <span class="pill">📋 Specs</span>
+        <span class="pill">⚡ Autopilot</span>
+        <span class="pill">🔧 Hooks</span>
+        <span class="pill">🧭 Steering</span>
+        <span class="pill">🤖 Agente IA</span>
+        <span class="pill">🧪 Tests automáticos</span>
+      </div>
+      <ul>
+        <li><strong>Specs</strong> — Define requisitos en lenguaje natural y Kiro genera un plan de implementación completo con requisitos, diseño y tareas.</li>
+        <li><strong>Autopilot</strong> — Deja que Kiro implemente cambios de forma autónoma mientras tú supervisas y apruebas.</li>
+        <li><strong>Hooks</strong> — Automatiza acciones del agente cuando ocurren eventos en el IDE (guardar archivo, crear test, etc.).</li>
+        <li><strong>Steering</strong> — Guía al agente con reglas y contexto específico de tu proyecto para que siga tus estándares.</li>
+        <li><strong>Agente IA</strong> — Un asistente que entiende tu código, responde preguntas y genera soluciones en contexto.</li>
+        <li><strong>Tests automáticos</strong> — Kiro puede generar y ejecutar tests para validar tu código automáticamente.</li>
+      </ul>
+    </div>
+
+    <!-- Educación -->
+    <div class="card">
+      <h2>🎓 Kiro en la Educación</h2>
+      <span class="tag" style="margin-bottom:12px;">🎓 Educación + IA</span>
+      <p>Kiro está transformando la forma en que los y las estudiantes aprenden a programar. En vez de quedarse atascados con errores de sintaxis o configuración, pueden enfocarse en entender conceptos y diseñar soluciones mientras la IA les ayuda con la implementación.</p>
+      <p>Esto permite:</p>
+      <ul>
+        <li>Crear proyectos reales desde el primer día de clase</li>
+        <li>Aprender buenas prácticas de desarrollo de forma natural</li>
+        <li>Iterar más rápido y experimentar sin miedo a romper cosas</li>
+        <li>Entender arquitectura de software con la guía del agente IA</li>
+      </ul>
+      <div class="highlight-box">
+        <p>📰 <strong>Lee más:</strong> Descubre cómo Kiro está acelerando el desarrollo GovTech y educativo.</p>
+        <a href="https://aws.amazon.com/es/blogs/publicsector/accelerating-govtech-development-with-kiro/" target="_blank" rel="noopener" style="font-size:13px;">
+          aws.amazon.com/blogs → Accelerating GovTech Development with Kiro ↗
+        </a>
+      </div>
+    </div>
+
+    <!-- Créditos -->
+    <div class="card" style="text-align:center;">
+      <h2>🎁 Créditos gratuitos</h2>
+      <p>Descarga Kiro y obtén créditos para empezar a usarlo:</p>
+      <div style="margin:16px 0;">
+        <div class="credits-badge">500 créditos gratis</div>
+        <p style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:6px;">Para cualquier persona que descargue Kiro</p>
+      </div>
+      <div style="margin:16px 0;">
+        <div class="credits-badge" style="background:rgba(255,215,0,0.12);border-color:rgba(255,215,0,0.4);color:#ffd700;">🎓 Hasta 1000 créditos para estudiantes</div>
+        <p style="font-size:13px;color:rgba(255,255,255,0.5);margin-top:6px;">Si eres estudiante, accede a créditos extra</p>
+      </div>
+    </div>
+
+    <!-- QR Codes -->
+    <div class="qr-section">
+      <canvas id="qr-download" width="140" height="140"></canvas>
+      <div class="qr-text">
+        <h4>📥 Descarga Kiro</h4>
+        <p>Escanea para descargar el IDE y obtener 500 créditos gratis.<br>
+          <a href="https://kiro.dev" target="_blank" rel="noopener">kiro.dev →</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="qr-section">
+      <canvas id="qr-students" width="140" height="140"></canvas>
+      <div class="qr-text">
+        <h4>🎓 Créditos para estudiantes</h4>
+        <p>Escanea para acceder a hasta 1000 créditos si eres estudiante.<br>
+          <a href="https://kiro.dev/students/" target="_blank" rel="noopener">kiro.dev/students →</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="qr-section">
+      <canvas id="qr-guide" width="140" height="140"></canvas>
+      <div class="qr-text">
+        <h4>📚 Guía: Aprende Jugando</h4>
+        <p>Tutorial completo para aprender Kiro construyendo un juego.<br>
+          <a href="https://kiro.dev/docs/guides/learn-by-playing/" target="_blank" rel="noopener">kiro.dev/docs/guides/learn-by-playing →</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <a href="index.html" class="btn btn-secondary" style="text-decoration:none;">🎮 Volver al Arcade</a>
+      <a href="https://kiro.dev" target="_blank" class="btn btn-primary" style="text-decoration:none;">🚀 Ir a kiro.dev</a>
+    </div>
+
+    <p style="text-align:center;color:rgba(255,255,255,0.25);font-size:12px;margin-top:40px;">© 2026 Summit de Madrid — Demo creada por Fiorella Piriz Sapio</p>
+
+  </div>
+
+  <script>
+    function drawQR(url, canvasEl) {
+      if (!canvasEl) return;
+      const size = canvasEl.width;
+      const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}&bgcolor=0d0d1a&color=c084fc&format=png`;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { const c=canvasEl.getContext('2d'); c.fillStyle='#0d0d1a'; c.fillRect(0,0,size,size); c.drawImage(img,0,0,size,size); };
+      img.onerror = () => { const c=canvasEl.getContext('2d'); c.fillStyle='#1a0a2e'; c.fillRect(0,0,size,size); c.strokeStyle='#790ECB'; c.lineWidth=2; c.strokeRect(4,4,size-8,size-8); c.fillStyle='#c084fc'; c.font='11px monospace'; c.textAlign='center'; c.fillText(url.replace('https://',''),size/2,size/2); };
+      img.src = apiUrl;
+    }
+    drawQR('https://kiro.dev', document.getElementById('qr-download'));
+    drawQR('https://kiro.dev/students/', document.getElementById('qr-students'));
+    drawQR('https://kiro.dev/docs/guides/learn-by-playing/', document.getElementById('qr-guide'));
+  </script>
+</body>
+</html>
