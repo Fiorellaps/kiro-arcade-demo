@@ -9,7 +9,7 @@ import traceback
 
 PORT = 8000
 REGION = 'us-east-1'
-PROFILE = 'kiro-arcade-profile'
+PROFILE = 'kiro-arcade'
 
 # --- Ranking file storage ---
 RANKINGS_DIR = os.path.join(os.path.dirname(__file__), 'rankings')
@@ -69,85 +69,57 @@ def _get_polly():
         return None
 
 # --- AI Comment Generation (Nova Lite) ---
+# IMPORTANT: All prompts must generate CLEAN, FAMILY-FRIENDLY content. No swearing, no insults.
+COMMENT_BASE_RULE = "REGLA IMPORTANTE: El comentario debe ser respetuoso, sin palabrotas ni insultos. Puedes usar 'bro' de forma amigable."
+COMMENT_BASE_RULE_EN = "IMPORTANT RULE: The comment must be respectful, no swearing or insults. You can use 'bro' in a friendly way."
+
 COMMENT_THEMES = {
     'flappy': {
         'es': [
-            "Eres un youtuber gamer de 14 años MUY emocionado narrando Flappy Bird. UNA frase corta (max 12 palabras), usa jerga juvenil como 'bro', 'literal', 'no manches', 'está roto'. Score: {score}. Evento: {event}. Solo la frase, sin comillas.",
-            "Eres un gato parlante muy sarcástico y gracioso comentando Flappy Bird. UNA frase corta (max 12 palabras), humor absurdo para niños. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un dinosaurio bebé que descubrió los videojuegos y está flipando. UNA frase (max 12 palabras), tierna y chistosa. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un meme viviente que habla con referencias a memes populares de internet. UNA frase (max 12 palabras), divertida para adolescentes. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un unicornio narrador deportivo que se emociona demasiado. UNA frase (max 12 palabras), exagerada y ridícula. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un robot que intenta entender las emociones humanas al jugar y falla chistosamente. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un hámster en una rueda que también juega videojuegos y hace comentarios absurdos. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase."
+            f"Eres un narrador gamer amigable que dice 'bro' mucho. {COMMENT_BASE_RULE} UNA frase corta y positiva (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase, sin comillas.",
+            f"Eres un fantasma simpático animando al jugador. {COMMENT_BASE_RULE} UNA frase corta motivadora (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
+            f"Eres un robot adorable que aprende sobre videojuegos. {COMMENT_BASE_RULE} UNA frase tierna y graciosa (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
         ],
         'en': [
-            "You're a 14-year-old YouTuber gamer SUPER hyped narrating Flappy Bird. ONE short phrase (max 12 words), use slang like 'bro', 'no cap', 'literally', 'sus'. Score: {score}. Event: {event}. Just the phrase, no quotes.",
-            "You're a sarcastic talking cat commenting on Flappy Bird. ONE short phrase (max 12 words), absurd humor for kids. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a baby dinosaur who just discovered video games and is losing its mind. ONE phrase (max 12 words), cute and funny. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a living meme who speaks in internet meme references. ONE phrase (max 12 words), funny for teens. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a unicorn sports commentator who gets WAY too excited. ONE phrase (max 12 words), over-the-top ridiculous. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a robot trying to understand human gaming emotions and hilariously failing. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase.",
-            "You're a hamster on a wheel who also plays video games and makes silly comments. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase."
+            f"You're a friendly gamer narrator who says 'bro' a lot. {COMMENT_BASE_RULE_EN} ONE short positive phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase, no quotes.",
+            f"You're a cute ghost cheering the player on. {COMMENT_BASE_RULE_EN} ONE short motivating phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
+            f"You're an adorable robot learning about video games. {COMMENT_BASE_RULE_EN} ONE cute funny phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
         ]
     },
     'ghost-dodge': {
         'es': [
-            "Eres un fantasmita tiktoker narrando cómo esquiva basura. UNA frase corta (max 12 palabras), usa jerga juvenil como 'bro', 'estoy muerto', 'qué random'. Score: {score}. Evento: {event}. Solo la frase, sin comillas.",
-            "Eres un perrito chihuahua muy nervioso comentando el juego de esquivar. UNA frase corta (max 12 palabras), graciosa y exagerada. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un alien adolescente que vino a la Tierra solo a jugar videojuegos. UNA frase (max 12 palabras), humor absurdo. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres una llama (el animal) que es influencer y comenta todo con drama. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un zombie vegetariano que odia la basura y hace chistes malos. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un pingüino DJ que narra todo como si fuera una fiesta épica. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un taco parlante que hace comentarios random y absurdos sobre esquivar cosas. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase."
+            f"Eres un fantasmita simpático narrando un juego de esquivar. {COMMENT_BASE_RULE} UNA frase corta y divertida (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase, sin comillas.",
+            f"Eres un narrador deportivo entusiasta pero educado. {COMMENT_BASE_RULE} UNA frase corta emocionante (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
+            f"Eres un pingüino animador que dice 'bro' y anima al jugador. {COMMENT_BASE_RULE} UNA frase positiva (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
         ],
         'en': [
-            "You're a TikToker ghost narrating how you dodge trash. ONE short phrase (max 12 words), use teen slang like 'bro', 'I'm dead', 'so random'. Score: {score}. Event: {event}. Just the phrase, no quotes.",
-            "You're a very nervous chihuahua commenting on the dodge game. ONE short phrase (max 12 words), funny and exaggerated. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a teenage alien who came to Earth just to play video games. ONE phrase (max 12 words), absurd humor. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a llama influencer who comments on everything with maximum drama. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase.",
-            "You're a vegetarian zombie who hates trash and makes bad puns. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase.",
-            "You're a penguin DJ who narrates everything like it's an epic party. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase.",
-            "You're a talking taco making random absurd comments about dodging stuff. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase."
+            f"You're a friendly ghost narrating a dodge game. {COMMENT_BASE_RULE_EN} ONE short fun phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase, no quotes.",
+            f"You're an enthusiastic but polite sports narrator. {COMMENT_BASE_RULE_EN} ONE short exciting phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
+            f"You're a cheerful penguin who says 'bro' and cheers the player. {COMMENT_BASE_RULE_EN} ONE positive phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
         ]
     },
     'fruit-ninja': {
         'es': [
-            "Eres un mono ninja muy torpe que comenta cortes de fruta. UNA frase corta (max 12 palabras), humor para niños, usa 'bro', 'épico', 'brutal'. Score: {score}. Evento: {event}. Solo la frase, sin comillas.",
-            "Eres una sandía asustada narrando cómo cortan a sus amigos frutas. UNA frase corta (max 12 palabras), dramática y chistosa. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un streamer de 12 años que se emociona demasiado cortando frutas. UNA frase (max 12 palabras), exagerada y divertida. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un gato samurái que juzga la técnica de corte con actitud. UNA frase (max 12 palabras), graciosa. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un plátano rapero que hace rimas sobre cortar frutas. UNA frase (max 12 palabras), con flow y humor. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un bebé dragón que quiere comerse todas las frutas antes de que las corten. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un pulpo chef con 8 cuchillos que está celoso del jugador. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase."
+            f"Eres un ninja amigable comentando cortes de fruta. {COMMENT_BASE_RULE} UNA frase corta y divertida (max 12 palabras), usa 'bro'. Score: {{score}}. Evento: {{event}}. Solo la frase, sin comillas.",
+            f"Eres un chef entusiasta que narra cortes de fruta como si fuera un show de cocina. {COMMENT_BASE_RULE} UNA frase positiva (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
+            f"Eres un gato samurái educado que comenta la técnica de corte. {COMMENT_BASE_RULE} UNA frase graciosa (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
         ],
         'en': [
-            "You're a clumsy ninja monkey commenting on fruit slicing. ONE short phrase (max 12 words), kid-friendly humor, use 'bro', 'epic', 'insane'. Score: {score}. Event: {event}. Just the phrase, no quotes.",
-            "You're a scared watermelon narrating how your fruit friends get sliced. ONE short phrase (max 12 words), dramatic and funny. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a 12-year-old streamer who gets WAY too hyped about cutting fruit. ONE phrase (max 12 words), exaggerated and fun. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a samurai cat judging the slicing technique with attitude. ONE phrase (max 12 words), funny. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a rapper banana dropping bars about fruit slicing. ONE phrase (max 12 words), with flow and humor. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a baby dragon who wants to eat all the fruits before they get sliced. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase.",
-            "You're an octopus chef with 8 knives who's jealous of the player. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase."
+            f"You're a friendly ninja commenting on fruit slicing. {COMMENT_BASE_RULE_EN} ONE short fun phrase (max 12 words), use 'bro'. Score: {{score}}. Event: {{event}}. Just the phrase, no quotes.",
+            f"You're an enthusiastic chef narrating fruit cuts like a cooking show. {COMMENT_BASE_RULE_EN} ONE positive phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
+            f"You're a polite samurai cat commenting on slicing technique. {COMMENT_BASE_RULE_EN} ONE funny phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
         ]
     },
     'rps': {
         'es': [
-            "Eres un youtuber de 13 años narrando piedra papel tijera como si fuera la final del mundial. UNA frase corta (max 12 palabras), usa 'bro', 'no way', 'está roto'. Score: {score}. Evento: {event}. Solo la frase, sin comillas.",
-            "Eres una piedra con sentimientos que se ofende cuando la eligen. UNA frase corta (max 12 palabras), dramática y chistosa. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un loro gamer que repite todo mal y hace comentarios absurdos. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un mago de kinder que predice todo mal pero con mucha confianza. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres una tijera influencer que tiene beef con la piedra. UNA frase (max 12 palabras), humor adolescente. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un mapache que encontró un celular y ahora comenta videojuegos. UNA frase (max 12 palabras), random y graciosa. Score: {score}. Evento: {event}. Solo la frase.",
-            "Eres un emoji viviente que reacciona de forma exagerada a cada jugada. UNA frase (max 12 palabras). Score: {score}. Evento: {event}. Solo la frase."
+            f"Eres un narrador amigable de piedra papel tijera que dice 'bro'. {COMMENT_BASE_RULE} UNA frase corta y divertida (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase, sin comillas.",
+            f"Eres un mago simpático que predice jugadas con humor. {COMMENT_BASE_RULE} UNA frase graciosa (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
+            f"Eres un emoji viviente que reacciona de forma exagerada pero educada. {COMMENT_BASE_RULE} UNA frase positiva (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
         ],
         'en': [
-            "You're a 13-year-old YouTuber narrating rock paper scissors like it's the World Cup final. ONE short phrase (max 12 words), use 'bro', 'no way', 'broken'. Score: {score}. Event: {event}. Just the phrase, no quotes.",
-            "You're a rock with feelings who gets offended when picked. ONE short phrase (max 12 words), dramatic and funny. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a gamer parrot who repeats everything wrong and makes absurd comments. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase.",
-            "You're a kindergarten magician who predicts everything wrong but with full confidence. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase.",
-            "You're scissors who's an influencer and has beef with rock. ONE phrase (max 12 words), teen humor. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a raccoon who found a phone and now comments on video games. ONE phrase (max 12 words), random and funny. Score: {score}. Event: {event}. Just the phrase.",
-            "You're a living emoji who overreacts to every single play. ONE phrase (max 12 words). Score: {score}. Event: {event}. Just the phrase."
+            f"You're a friendly rock paper scissors narrator who says 'bro'. {COMMENT_BASE_RULE_EN} ONE short fun phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase, no quotes.",
+            f"You're a friendly magician who predicts plays with humor. {COMMENT_BASE_RULE_EN} ONE funny phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
+            f"You're a living emoji who overreacts politely. {COMMENT_BASE_RULE_EN} ONE positive phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
         ]
     }
 }
@@ -162,7 +134,7 @@ def generate_comment(game, score, event, lang='es'):
         prompt = random.choice(prompts).format(score=score, event=event)
         body = json.dumps({
             "messages": [{"role": "user", "content": [{"text": prompt}]}],
-            "inferenceConfig": {"maxTokens": 60, "temperature": 0.95, "topP": 0.95}
+            "inferenceConfig": {"maxTokens": 60, "temperature": 0.7, "topP": 0.9}
         })
         resp = client.invoke_model(
             modelId='us.amazon.nova-lite-v1:0',
@@ -291,14 +263,25 @@ def generate_tts(text, lang='es'):
         if not client:
             return None
         voice = POLLY_VOICES.get(lang, 'Lucia')
-        resp = client.synthesize_speech(
-            Text=text,
-            OutputFormat='mp3',
-            VoiceId=voice,
-            Engine='neural'
-        )
-        audio_bytes = resp['AudioStream'].read()
-        return base64.b64encode(audio_bytes).decode('utf-8')
+
+        # Try neural first, fall back to standard if not supported
+        for engine in ['neural', 'standard']:
+            try:
+                resp = client.synthesize_speech(
+                    Text=text,
+                    OutputFormat='mp3',
+                    VoiceId=voice,
+                    Engine=engine
+                )
+                audio_bytes = resp['AudioStream'].read()
+                print(f"[Polly] OK — voice={voice}, engine={engine}, lang={lang}, bytes={len(audio_bytes)}")
+                return base64.b64encode(audio_bytes).decode('utf-8')
+            except Exception as eng_err:
+                print(f"[Polly] Engine '{engine}' failed for {voice}: {eng_err}")
+                continue
+
+        print(f"[Polly] All engines failed for voice={voice}")
+        return None
     except Exception as e:
         print(f"[Polly Error] {e}")
         return None
@@ -453,12 +436,17 @@ class GameHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({'audio': audio_b64}).encode())
+        except BrokenPipeError:
+            pass  # Client disconnected, ignore
         except Exception as e:
             print(f"[TTS API Error] {e}")
-            self.send_response(500)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'error': str(e)}).encode())
+            try:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(e)}).encode())
+            except BrokenPipeError:
+                pass
 
 
 class ThreadedServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
