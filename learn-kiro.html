@@ -169,6 +169,32 @@
       </div>
     </div>
 
+    <!-- Prompt de ejemplo -->
+    <div class="card">
+      <h2>🚀 Crea un juego con un prompt</h2>
+      <p>Con Kiro puedes generar aplicaciones completas a partir de una descripción en lenguaje natural. Aquí tienes un ejemplo real: el prompt que usamos para crear un juego estilo Pac-Man.</p>
+      <div style="background:rgba(0,0,0,0.5);border:1px solid rgba(121,14,203,0.4);border-radius:12px;padding:16px 18px;font-family:'Courier New',monospace;font-size:12px;color:#e2c4ff;line-height:1.5;margin:14px 0;max-height:240px;overflow-y:auto;">I want to build a Pac-Kiro game. Please create a basic working version with:
+- HTML5 canvas for rendering
+- A maze layout with walls stored as originalMaze template
+- Working maze copy that gets modified during gameplay
+- Dots to collect throughout the maze
+- Kiro-logo.png should be used as a character
+- A Kiro character (kiro-logo.png) with movement controls (arrow keys) that moves at controlled speed (8 frames between moves)
+- Simple ghost enemies that move slower than the player (12 frames between moves)
+- Basic collision detection for walls, dots, and ghosts
+- A score counter and lives system
+- Proper game state management with 'start', 'playing', 'gameOver', 'levelComplete' states
+- Start screen that shows 'Use arrow keys to move! Press any arrow key to start'
+- Game begins when any arrow key is pressed
+- Proper maze restoration on restart (copy from originalMaze, not random generation)
+- Movement timer reset on restart to prevent timing issues
+- Game over and restart functionality
+- Proper movement timing so characters don't fly around at jet speed
+
+Make sure movement is grid-based and feels like classic Pac-Man with proper timing. The maze must restore correctly on restart using the original template. Keep it simple and playable. Use vanilla JavaScript and make it work in a browser.</div>
+      <p style="font-size:13px;color:rgba(255,255,255,0.5);">Copia este prompt, pégalo en el chat de Kiro y observa cómo genera todos los archivos del juego automáticamente.</p>
+    </div>
+
     <!-- Créditos -->
     <div class="card" style="text-align:center;">
       <h2>🎁 Créditos gratuitos</h2>
@@ -217,6 +243,14 @@
     <div class="btn-row">
       <a href="index.html" class="btn btn-secondary" style="text-decoration:none;">🎮 Volver al Arcade</a>
       <a href="https://kiro.dev" target="_blank" class="btn btn-primary" style="text-decoration:none;">🚀 Ir a kiro.dev</a>
+    </div>
+
+    <div class="card" style="text-align:center;margin-top:24px;">
+      <h2>🎮 ¿Quieres seguir jugando?</h2>
+      <p>Accede a Kiro Arcade desde cualquier dispositivo y compite por el ranking.</p>
+      <a href="https://fiorellaps.github.io/kiro-arcade-demo/" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none;margin-top:10px;">
+        🕹️ Jugar Kiro Arcade
+      </a>
     </div>
 
     <p style="text-align:center;color:rgba(255,255,255,0.25);font-size:12px;margin-top:40px;">© 2026 Summit de Madrid — Demo creada por Fiorella Piriz Sapio</p>
