@@ -2,8 +2,6 @@
 
 > Tu IDE con IA para construir más rápido
 
-<img src="images/kiro-logo.png" alt="Kiro Logo" width="80" style="background:#0a0a0a;border-radius:50%;padding:4px;">
-
 ## ¿Qué es Kiro?
 
 Kiro es un IDE (entorno de desarrollo integrado) potenciado por inteligencia artificial, creado por AWS. Está diseñado para que desarrolladores y desarrolladoras de todos los niveles construyan software más rápido y con mayor calidad.
