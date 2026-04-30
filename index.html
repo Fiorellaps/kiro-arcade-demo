@@ -482,10 +482,10 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
               <div class="name">Fruit Ninja</div>
               <div class="desc">Corta las frutas</div>
             </div>
-            <div class="game-card" onclick="launchGame('src/rps.html')">
-              <div class="emoji">✊</div>
-              <div class="name">Piedra Papel Tijera</div>
-              <div class="desc">Vence a la IA</div>
+            <div class="game-card" onclick="launchGame('src/super-kiro.html')">
+              <div class="emoji">🏃</div>
+              <div class="name">Super Kiro World</div>
+              <div class="desc">Salta y corre</div>
             </div>
             <div class="game-card" onclick="launchGame('src/ghost-dodge.html')">
               <div class="emoji">👻</div>
@@ -504,8 +504,6 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
           </div>
         </div>
       </div>
-
-      <div class="content-block" id="s3-b2" style="display:none;"></div>
 
       <div class="content-block" id="s3-b3">
         <div class="btn-row">
@@ -570,9 +568,9 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
           <div class="qr-section" style="justify-content:center;">
             <canvas id="qr-final" width="150" height="150"></canvas>
             <div class="qr-text" style="text-align:left;">
-              <h4>Descarga Kiro</h4>
-              <p>Accede al IDE y empieza a construir.<br>
-                <a href="https://kiro.dev" target="_blank" rel="noopener">kiro.dev →</a>
+              <h4>Cuéntanos tu experiencia</h4>
+              <p>Escanea para completar una breve encuesta y darnos tu feedback.<br>
+                <a href="https://pulse.aws/survey/WZMGWDXP" target="_blank" rel="noopener">pulse.aws/survey →</a>
               </p>
             </div>
           </div>
@@ -634,7 +632,6 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
         3: [
           { speech: '¡Es hora de jugar! Elige un juego, tienes 3 rondas por partida. ¡A por el récord!', blockId: 's3-b0' },
           { speech: 'Aquí puedes ver el ranking. ¿Podrás llegar al primer lugar?', blockId: 's3-b1' },
-          { speech: 'Y si quieres aprender más sobre Kiro, escanea estos códigos QR con tu móvil.', blockId: 's3-b2' },
           { speech: '¡Buena suerte, gamer!', blockId: 's3-b3' },
         ],
         5: [
@@ -666,7 +663,6 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
         3: [
           { speech: "Time to play! Pick a game, you have 3 lives per round. Go for the record!", blockId: 's3-b0' },
           { speech: "Here you can see the ranking. Can you make it to first place?", blockId: 's3-b1' },
-          { speech: "And if you want to learn more about Kiro, scan these QR codes with your phone.", blockId: 's3-b2' },
           { speech: "Good luck, gamer!", blockId: 's3-b3' },
         ],
         5: [
@@ -711,35 +707,47 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       });
     }
 
-    // ==================== TTS: Polly con fallback a Web Speech API ====================
+    // ==================== TTS: Polly con fallback, con timeout para no bloquear ====================
+    function withTimeout(promise, ms) {
+      return Promise.race([
+        promise,
+        new Promise(resolve => setTimeout(resolve, ms))
+      ]);
+    }
+
     async function speakWithPolly(text) {
       if (muted) return null;
 
-      // 1) Intentar Polly
+      // 1) Intentar Polly con timeout de 10s
       try {
-        const resp = await fetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, lang })
-        });
-        const data = await resp.json();
-        if (data.audio) {
-          console.log('[TTS] Polly audio received, playing...');
-          return new Promise((resolve) => {
-            const audio = new Audio('data:audio/mp3;base64,' + data.audio);
-            currentAudio = audio;
-            audio.onended = () => { currentAudio = null; resolve(); };
-            audio.onerror = () => { currentAudio = null; console.warn('[TTS] Audio playback error, trying fallback'); speakFallback(text).then(resolve); };
-            audio.play().catch(() => { currentAudio = null; speakFallback(text).then(resolve); });
-          });
+        const resp = await withTimeout(
+          fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, lang })
+          }),
+          5000
+        );
+        if (resp && resp.json) {
+          const data = await resp.json();
+          if (data.audio) {
+            console.log('[TTS] Polly audio received, playing...');
+            return withTimeout(new Promise((resolve) => {
+              const audio = new Audio('data:audio/mp3;base64,' + data.audio);
+              currentAudio = audio;
+              audio.onended = () => { currentAudio = null; resolve(); };
+              audio.onerror = () => { currentAudio = null; resolve(); };
+              audio.play().catch(() => { currentAudio = null; resolve(); });
+            }), 15000);
+          }
         }
       } catch (e) {
-        console.warn('[TTS] Polly request failed:', e.message);
+        console.warn('[TTS] Polly failed:', e.message || e);
       }
 
-      // 2) Fallback: Web Speech API del navegador
+      // 2) Fallback: Web Speech API con timeout de 12s
       console.log('[TTS] Using browser fallback voice');
-      return speakFallback(text);
+      return withTimeout(speakFallback(text), 12000);
     }
 
     function speakFallback(text) {
@@ -747,24 +755,25 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       if (!window.speechSynthesis) return Promise.resolve();
 
       return new Promise((resolve) => {
-        // Cancelar cualquier utterance previa
-        window.speechSynthesis.cancel();
+        try {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance(text);
+          utter.lang = lang === 'en' ? 'en-US' : 'es-ES';
+          utter.rate = 1.05;
+          utter.pitch = 1.1;
+          utter.volume = 1;
 
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = lang === 'en' ? 'en-US' : 'es-ES';
-        utter.rate = 1.05;
-        utter.pitch = 1.1;
-        utter.volume = 1;
+          const voices = window.speechSynthesis.getVoices();
+          const targetLang = lang === 'en' ? 'en' : 'es';
+          const match = voices.find(v => v.lang.startsWith(targetLang) && v.localService);
+          if (match) utter.voice = match;
 
-        // Intentar elegir una voz adecuada
-        const voices = window.speechSynthesis.getVoices();
-        const targetLang = lang === 'en' ? 'en' : 'es';
-        const match = voices.find(v => v.lang.startsWith(targetLang) && v.localService);
-        if (match) utter.voice = match;
-
-        utter.onend = resolve;
-        utter.onerror = resolve;
-        window.speechSynthesis.speak(utter);
+          utter.onend = resolve;
+          utter.onerror = resolve;
+          window.speechSynthesis.speak(utter);
+        } catch (e) {
+          resolve();
+        }
       });
     }
 
@@ -894,7 +903,7 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       }
 
       if (step === 5) {
-        drawQR('https://kiro.dev', document.getElementById('qr-final'));
+        drawQR('https://pulse.aws/survey/WZMGWDXP', document.getElementById('qr-final'));
       }
 
       // Start narration for new step (skip step 4 — that's the game iframe)
@@ -987,14 +996,21 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       const name = localStorage.getItem('kiroPlayerName') || '???';
       const gameKey = arcadeGameUrl.includes('flappy') ? 'flappy'
         : arcadeGameUrl.includes('fruit') ? 'fruit-ninja'
-        : arcadeGameUrl.includes('rps') ? 'rps' : 'ghost-dodge';
+        : arcadeGameUrl.includes('super-kiro') ? 'super-kiro' : 'ghost-dodge';
 
-      // Save to ranking
+      // Save to game-specific ranking
       fetch('/api/ranking', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ game: gameKey, score: total, name, date: new Date().toISOString().slice(0,10) })
-      }).then(() => loadFinalRanking(gameKey)).catch(() => loadFinalRanking(gameKey));
+      }).catch(() => {});
+
+      // Save to global ranking
+      fetch('/api/ranking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game: 'global', score: total, name, date: new Date().toISOString().slice(0,10) })
+      }).then(() => loadFinalRanking()).catch(() => loadFinalRanking());
 
       document.getElementById('final-score').textContent = total;
       document.getElementById('final-rounds').textContent =
@@ -1003,18 +1019,17 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       goToStep(5);
     }
 
-    async function loadFinalRanking(gameKey) {
+    async function loadFinalRanking() {
       try {
-        const resp = await fetch('/api/ranking?game=' + gameKey);
+        const resp = await fetch('/api/ranking?game=global');
         const data = await resp.json();
         const container = document.getElementById('final-ranking');
         if (data && data.length > 0) {
-          const gameName = GAME_NAMES[gameKey] || gameKey;
-          let html = `<h3 style="color:#c084fc;font-size:15px;margin-bottom:8px;">🏆 Top 3 — ${gameName}</h3>`;
+          let html = `<h3 style="color:#c084fc;font-size:15px;margin-bottom:8px;">🏆 Ranking Global</h3>`;
           html += '<table class="ranking-table" style="max-width:400px;margin:0 auto;"><thead><tr><th>#</th><th>' +
             (lang==='en'?'Player':'Jugador') + '</th><th>' + (lang==='en'?'Score':'Puntos') + '</th></tr></thead><tbody>';
-          data.slice(0, 3).forEach((e, i) => {
-            const medal = i===0?'🥇':i===1?'🥈':'🥉';
+          data.slice(0, 5).forEach((e, i) => {
+            const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉': (i+1);
             html += `<tr><td>${medal}</td><td>${e.name||'???'}</td><td>${e.score}</td></tr>`;
           });
           html += '</tbody></table>';
@@ -1042,30 +1057,29 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
     // ==================== Rankings ====================
     const GAME_NAMES = {
       'flappy': 'Flappy Kiro', 'fruit-ninja': 'Fruit Ninja',
-      'rps': 'Piedra Papel Tijera', 'ghost-dodge': 'Ghost Dodge'
+      'super-kiro': 'Super Kiro World', 'ghost-dodge': 'Ghost Dodge'
     };
 
     async function loadAllRankings() {
       const container = document.getElementById('ranking-container');
-      let html = ''; let hasAny = false;
-      for (const game of Object.keys(GAME_NAMES)) {
-        try {
-          const resp = await fetch('/api/ranking?game=' + game);
-          const data = await resp.json();
-          if (data && data.length > 0) {
-            hasAny = true;
-            html += `<h3 style="color:#c084fc;font-size:14px;margin:12px 0 6px;">${GAME_NAMES[game]}</h3>`;
-            html += `<table class="ranking-table"><thead><tr><th>#</th><th>${lang==='en'?'Player':'Jugador'}</th><th>${lang==='en'?'Score':'Puntos'}</th></tr></thead><tbody>`;
-            data.forEach((e, i) => {
-              const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
-              html += `<tr><td>${medal}</td><td>${e.name||'???'}</td><td>${e.score}</td></tr>`;
-            });
-            html += '</tbody></table>';
-          }
-        } catch(e){}
+      try {
+        const resp = await fetch('/api/ranking?game=global');
+        const data = await resp.json();
+        if (data && data.length > 0) {
+          let html = `<h3 style="color:#c084fc;font-size:14px;margin:12px 0 6px;">🏆 Ranking Global</h3>`;
+          html += `<table class="ranking-table"><thead><tr><th>#</th><th>${lang==='en'?'Player':'Jugador'}</th><th>${lang==='en'?'Score':'Puntos'}</th></tr></thead><tbody>`;
+          data.forEach((e, i) => {
+            const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+            html += `<tr><td>${medal}</td><td>${e.name||'???'}</td><td>${e.score}</td></tr>`;
+          });
+          html += '</tbody></table>';
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = `<p style="color:rgba(255,255,255,0.4);font-size:14px;text-align:center;">${lang==='en'?'Play to appear in the ranking':'Juega para aparecer en el ranking'}</p>`;
+        }
+      } catch(e) {
+        container.innerHTML = `<p style="color:rgba(255,255,255,0.4);font-size:14px;text-align:center;">${lang==='en'?'Play to appear in the ranking':'Juega para aparecer en el ranking'}</p>`;
       }
-      if (!hasAny) html = `<p style="color:rgba(255,255,255,0.4);font-size:14px;text-align:center;">${lang==='en'?'Play to appear in the ranking':'Juega para aparecer en el ranking'}</p>`;
-      container.innerHTML = html;
     }
 
     function resetRankings() {
