@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Kiro World — Kiro Arcade</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+    canvas { border: 2px solid #790ECB; border-radius: 8px; box-shadow: 0 0 30px rgba(121,14,203,0.3); max-height: 90vh; width: auto; }
+    #webcam-container { position: fixed; bottom: 10px; right: 10px; width: 180px; height: 135px; border: 2px solid #790ECB; border-radius: 8px; overflow: hidden; box-shadow: 0 0 15px rgba(121,14,203,0.4); z-index: 10; }
+    #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    #hand-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+    #hand-status { position: fixed; bottom: 150px; right: 10px; color: #c0c0c0; font-family: 'Segoe UI', sans-serif; font-size: 11px; text-align: center; width: 180px; z-index: 10; }
+    #back-btn { position: fixed; top: 15px; left: 15px; background: rgba(121,14,203,0.3); color: #fff; border: 1px solid #790ECB; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 10; }
+    #back-btn:hover { background: rgba(121,14,203,0.6); }
+  </style>
+</head>
+<body>
+  <button id="back-btn">← Menu</button>
+  <canvas id="game" width="800" height="1000"></canvas>
+  <div id="webcam-container">
+    <video id="webcam" autoplay playsinline></video>
+    <canvas id="hand-overlay"></canvas>
+  </div>
+  <div id="hand-status"></div>
+  <script>
+    // --- Audio ---
+    const KA = (() => {
+      let ctx,started=false,bgmGain,masterGain,muted=false;
+      function init(){if(started)return;started=true;ctx=new(window.AudioContext||window.webkitAudioContext)();masterGain=ctx.createGain();masterGain.gain.value=1;masterGain.connect(ctx.destination);bgmGain=ctx.createGain();bgmGain.gain.value=0.15;bgmGain.connect(masterGain);}
+      function tone(f,d,t='square',v=0.07,dest){if(!ctx)return;const o=ctx.createOscillator(),g=ctx.createGain();o.type=t;o.frequency.value=f;g.gain.value=v;g.gain.setTargetAtTime(0,ctx.currentTime+d*0.7,d*0.15);o.connect(g);g.connect(dest||masterGain);o.start();o.stop(ctx.currentTime+d);}
+      let bgmI=null;
+      function startBGM(){if(!ctx||bgmI)return;const n=[523,587,659,698,659,587,523,440];let i=0;bgmI=setInterval(()=>{if(muted)return;tone(n[i%n.length],0.15,'square',0.04,bgmGain);i++;},250);}
+      function stopBGM(){if(bgmI){clearInterval(bgmI);bgmI=null;}}
+      return{init,startBGM,stopBGM,
+        jump(){init();tone(520,0.08);setTimeout(()=>tone(680,0.1),60);},
+        land(){init();tone(200,0.05,'triangle',0.04);},
+        hit(){init();tone(150,0.3,'sawtooth',0.08);},
+        coin(){init();tone(880,0.08);setTimeout(()=>tone(1100,0.1),80);},
+        select(){init();tone(600,0.08);},
+        toggle(){muted=!muted;if(masterGain)masterGain.gain.value=muted?0:1;return muted;}
+      };
+    })();
+    document.addEventListener('click',()=>KA.init(),{once:true});
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+
+    // --- i18n ---
+    let lang = localStorage.getItem('kiroArcadeLang') || 'es';
+    const I18N = {
+      es: { title:'Super Kiro World', start:'Abre la mano ✋ o pulsa ESPACIO para saltar', gameOver:'¡Caíste!', score:'Puntos', ready:'Preparado...', jump:'🖐️ ¡Salta!' },
+      en: { title:'Super Kiro World', start:'Open hand ✋ or press SPACE to jump', gameOver:'You fell!', score:'Score', ready:'Get ready...', jump:'🖐️ Jump!' }
+    };
+    function t(k){return(I18N[lang]||I18N.es)[k]||k;}
+
+    // --- Game State ---
+    let gameState = 'start'; // start | countdown | playing | gameOver
+    let score = 0;
+    let highScore = 0;
+    let frameCount = 0;
+    let screenShake = 0;
+
+    // --- Kiro Player ---
+    const GROUND_Y = H - 200;
+    const GRAVITY = 0.6;
+    const JUMP_FORCE = -14;
+    const kiro = { x: 150, y: GROUND_Y, vy: 0, w: 50, h: 50, onGround: true, jumping: false };
+
+    // --- Kiro Logo ---
+    const kiroImg = new Image();
+    kiroImg.src = '../images/kiro-logo.png';
+
+    // --- Platforms ---
+    let platforms = [];
+    let scrollSpeed = 4;
+    let platformTimer = 0;
+    let difficultyLevel = 0;
+    const PLATFORM_H = 16;
+
+    // --- Coins ---
+    let coins = [];
+
+    // --- Particles ---
+    let particles = [];
+
+    // --- Background stars ---
+    const stars = Array.from({length:80},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()*2+0.5,sp:Math.random()*0.5+0.2}));
+
+    // --- Countdown ---
+    let countdownValue = 3, countdownStart = 0;
+
+    function resetGame() {
+      kiro.y = GROUND_Y; kiro.vy = 0; kiro.onGround = true; kiro.jumping = false;
+      platforms = [];
+      coins = [];
+      particles = [];
+      score = 0; frameCount = 0; scrollSpeed = 4; platformTimer = 0; difficultyLevel = 0;
+      screenShake = 0;
+      // Initial ground platforms
+      for (let i = 0; i < 6; i++) {
+        platforms.push({ x: i * 160, y: GROUND_Y + kiro.h, w: 160, gap: false });
+      }
+    }
+
+    function spawnPlatform() {
+      const last = platforms[platforms.length - 1];
+      if (!last) return;
+      const nextX = last.x + last.w;
+      // Sometimes create a gap
+      const gapChance = 0.2 + difficultyLevel * 0.03;
+      if (Math.random() < gapChance && platforms.length > 6) {
+        const gapW = 80 + Math.random() * (60 + difficultyLevel * 10);
+        platforms.push({ x: nextX, y: GROUND_Y + kiro.h, w: gapW, gap: true });
+      } else {
+        const pw = 100 + Math.random() * 120;
+        // Sometimes elevated platform
+        let py = GROUND_Y + kiro.h;
+        if (Math.random() < 0.15 + difficultyLevel * 0.02) {
+          py = GROUND_Y + kiro.h - (30 + Math.random() * 60);
+        }
+        platforms.push({ x: nextX, y: py, w: pw, gap: false });
+        // Maybe spawn a coin
+        if (Math.random() < 0.4) {
+          coins.push({ x: nextX + pw / 2, y: py - 60, collected: false });
+        }
+      }
+    }
+
+    function jump() {
+      if (kiro.onGround && gameState === 'playing') {
+        kiro.vy = JUMP_FORCE;
+        kiro.onGround = false;
+        kiro.jumping = true;
+        KA.jump();
+        // Jump particles
+        for (let i = 0; i < 5; i++) {
+          particles.push({ x: kiro.x + kiro.w/2, y: kiro.y + kiro.h, vx: (Math.random()-0.5)*3, vy: -Math.random()*2, life: 20, color: '#790ECB' });
+        }
+      }
+    }
+
+    function startCountdown() {
+      if (gameState === 'start' || gameState === 'gameOver') {
+        if (gameState === 'gameOver') resetGame();
+        gameState = 'countdown'; countdownValue = 3; countdownStart = Date.now();
+        KA.select(); KA.startBGM();
+      }
+    }
+
+    function update() {
+      if (gameState !== 'playing') return;
+      frameCount++;
+
+      // Difficulty ramp
+      if (frameCount % 600 === 0 && difficultyLevel < 10) {
+        difficultyLevel++;
+        scrollSpeed = 4 + difficultyLevel * 0.4;
+      }
+
+      // Scroll platforms
+      for (const p of platforms) p.x -= scrollSpeed;
+      for (const c of coins) c.x -= scrollSpeed;
+      // Remove off-screen
+      platforms = platforms.filter(p => p.x + p.w > -50);
+      coins = coins.filter(c => c.x > -50 && !c.collected);
+
+      // Spawn new platforms
+      const last = platforms[platforms.length - 1];
+      if (last && last.x + last.w < W + 200) spawnPlatform();
+
+      // Gravity
+      kiro.vy += GRAVITY;
+      kiro.y += kiro.vy;
+
+      // Platform collision
+      kiro.onGround = false;
+      for (const p of platforms) {
+        if (p.gap) continue;
+        if (kiro.x + kiro.w > p.x && kiro.x < p.x + p.w) {
+          if (kiro.y + kiro.h >= p.y && kiro.y + kiro.h <= p.y + PLATFORM_H + 10 && kiro.vy >= 0) {
+            kiro.y = p.y - kiro.h;
+            kiro.vy = 0;
+            kiro.onGround = true;
+            if (kiro.jumping) { kiro.jumping = false; KA.land(); }
+          }
+        }
+      }
+
+      // Coin collection
+      for (const c of coins) {
+        if (!c.collected && Math.abs(kiro.x + kiro.w/2 - c.x) < 30 && Math.abs(kiro.y + kiro.h/2 - c.y) < 30) {
+          c.collected = true;
+          score += 5;
+          KA.coin();
+          for (let i = 0; i < 8; i++) {
+            particles.push({ x: c.x, y: c.y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4, life: 25, color: '#ffd700' });
+          }
+        }
+      }
+
+      // Score from distance
+      if (frameCount % 10 === 0) score++;
+
+      // Fall death
+      if (kiro.y > H + 50) {
+        gameState = 'gameOver';
+        screenShake = 10;
+        KA.hit(); KA.stopBGM();
+        if (score > highScore) highScore = score;
+        try { window.parent.postMessage({ type: 'gameOver', score: score }, '*'); } catch(e) {}
+      }
+
+      // Particles
+      particles = particles.filter(p => { p.x += p.vx; p.y += p.vy; p.life--; return p.life > 0; });
+
+      // Screen shake decay
+      if (screenShake > 0.5) screenShake *= 0.9;
+    }
+
+    // --- Drawing ---
+    function drawBackground() {
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#0d0d1a');
+      grad.addColorStop(0.6, '#1a0a2e');
+      grad.addColorStop(1, '#2d1050');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+      // Stars
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      for (const s of stars) {
+        s.x -= s.sp;
+        if (s.x < 0) { s.x = W; s.y = Math.random() * H; }
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI*2); ctx.fill();
+      }
+    }
+
+    function drawPlatforms() {
+      for (const p of platforms) {
+        if (p.gap) continue;
+        // Platform top
+        const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y + PLATFORM_H);
+        grad.addColorStop(0, '#790ECB');
+        grad.addColorStop(1, '#4a0880');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(p.x, p.y, p.w, PLATFORM_H, 4);
+        ctx.fill();
+        // Grass top
+        ctx.fillStyle = '#00ff88';
+        ctx.fillRect(p.x, p.y, p.w, 3);
+      }
+    }
+
+    function drawKiro() {
+      ctx.save();
+      // Bob animation
+      const bob = kiro.onGround ? Math.sin(frameCount * 0.1) * 2 : 0;
+      const drawY = kiro.y + bob;
+      if (kiroImg.complete && kiroImg.naturalWidth > 0) {
+        ctx.drawImage(kiroImg, kiro.x, drawY, kiro.w, kiro.h);
+      } else {
+        ctx.fillStyle = '#790ECB';
+        ctx.beginPath();
+        ctx.roundRect(kiro.x, drawY, kiro.w, kiro.h, 10);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('K', kiro.x + kiro.w/2, drawY + 35);
+      }
+      ctx.restore();
+    }
+
+    function drawCoins() {
+      for (const c of coins) {
+        if (c.collected) continue;
+        const pulse = 1 + Math.sin(frameCount * 0.08 + c.x) * 0.1;
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.scale(pulse, pulse);
+        ctx.fillStyle = '#ffd700';
+        ctx.shadowColor = '#ffd700';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#b8860b';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('K', 0, 0);
+        ctx.restore();
+      }
+    }
+
+    function drawParticles() {
+      for (const p of particles) {
+        ctx.globalAlpha = p.life / 25;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawScore() {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 28px "Segoe UI", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(t('score') + ': ' + score, 20, 40);
+    }
+
+    function drawStart() {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#790ECB';
+      ctx.font = 'bold 48px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#790ECB'; ctx.shadowBlur = 25;
+      ctx.fillText(t('title'), W/2, H/2 - 80);
+      ctx.shadowBlur = 0;
+      // Kiro logo
+      if (kiroImg.complete) ctx.drawImage(kiroImg, W/2 - 40, H/2 - 60, 80, 80);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '20px "Segoe UI", sans-serif';
+      ctx.fillText(t('start'), W/2, H/2 + 60);
+    }
+
+    function drawCountdown() {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, W, H);
+      const elapsed = Date.now() - countdownStart;
+      const withinSecond = (elapsed % 1000) / 1000;
+      const scale = 1 + (1 - withinSecond) * 0.3;
+      ctx.save();
+      ctx.translate(W/2, H/2);
+      ctx.scale(scale, scale);
+      ctx.fillStyle = '#790ECB';
+      ctx.font = 'bold 120px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#790ECB'; ctx.shadowBlur = 30;
+      ctx.fillText(countdownValue, 0, 0);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+
+    function drawGameOver() {
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#ff4444';
+      ctx.font = 'bold 48px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(t('gameOver'), W/2, H/2 - 60);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 32px "Segoe UI", sans-serif';
+      ctx.fillText(t('score') + ': ' + score, W/2, H/2);
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.font = '18px "Segoe UI", sans-serif';
+      ctx.fillText(lang === 'es' ? 'Preparando siguiente ronda...' : 'Preparing next round...', W/2, H/2 + 50);
+    }
+
+    // --- Main Loop ---
+    function gameLoop() {
+      // Countdown logic
+      if (gameState === 'countdown') {
+        const elapsed = Date.now() - countdownStart;
+        countdownValue = 3 - Math.floor(elapsed / 1000);
+        if (countdownValue <= 0) { gameState = 'playing'; resetGame(); }
+      }
+
+      update();
+
+      ctx.save();
+      if (screenShake > 0.5) {
+        ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
+      }
+      drawBackground();
+      drawPlatforms();
+      drawCoins();
+      drawKiro();
+      drawParticles();
+      drawScore();
+      ctx.restore();
+
+      if (gameState === 'start') drawStart();
+      if (gameState === 'countdown') drawCountdown();
+      if (gameState === 'gameOver') drawGameOver();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // --- Input ---
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (gameState === 'start' || gameState === 'gameOver') startCountdown();
+        else jump();
+      }
+      if (e.code === 'KeyM') KA.toggle();
+    });
+    canvas.addEventListener('click', () => {
+      if (gameState === 'start' || gameState === 'gameOver') startCountdown();
+      else jump();
+    });
+
+    // --- Hand Detection ---
+    let handOpen = false;
+    let prevHandOpen = false;
+    window._mpHandConnections = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+    const overlayCanvas = document.getElementById('hand-overlay');
+    const overlayCtx = overlayCanvas.getContext('2d');
+
+    function drawHandLandmarks(lm) {
+      overlayCanvas.width = overlayCanvas.offsetWidth;
+      overlayCanvas.height = overlayCanvas.offsetHeight;
+      overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
+      if(!lm||lm.length===0)return;
+      const w=overlayCanvas.width,h=overlayCanvas.height;
+      overlayCtx.strokeStyle='#790ECB';overlayCtx.lineWidth=2;
+      for(const c of window._mpHandConnections){const s=lm[c[0]],e=lm[c[1]];if(!s||!e)continue;overlayCtx.beginPath();overlayCtx.moveTo(s.x*w,s.y*h);overlayCtx.lineTo(e.x*w,e.y*h);overlayCtx.stroke();}
+      for(const l of lm){overlayCtx.fillStyle='#00ff88';overlayCtx.beginPath();overlayCtx.arc(l.x*w,l.y*h,3,0,Math.PI*2);overlayCtx.fill();}
+    }
+
+    function isHandOpen(lm) {
+      const indexUp = lm[8].y < lm[6].y;
+      const middleUp = lm[12].y < lm[10].y;
+      const ringUp = lm[16].y < lm[14].y;
+      const pinkyUp = lm[20].y < lm[18].y;
+      let count = 0;
+      if(indexUp) count++;
+      if(middleUp) count++;
+      if(ringUp) count++;
+      if(pinkyUp) count++;
+      return count >= 3;
+    }
+
+    async function initHandDetection() {
+      const video = document.getElementById('webcam');
+      const statusEl = document.getElementById('hand-status');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({video:{width:320,height:240,facingMode:'user'}});
+        video.srcObject = stream;
+        await new Promise(r=>{video.onloadedmetadata=r;});
+        await video.play();
+      } catch(e) { statusEl.textContent = '❌ No camera'; return; }
+
+      let HL, FR;
+      try {
+        const mod = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs');
+        HL = mod.HandLandmarker; FR = mod.FilesetResolver;
+        if(HL.HAND_CONNECTIONS) window._mpHandConnections = HL.HAND_CONNECTIONS.map(c=>[c.start,c.end]);
+      } catch(e) { statusEl.textContent = '❌ Module fail'; return; }
+
+      let vision;
+      try { vision = await FR.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm'); } catch(e) { return; }
+
+      let handLandmarker;
+      for (const delegate of ['GPU','CPU']) {
+        try {
+          handLandmarker = await HL.createFromOptions(vision, {
+            baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',delegate},
+            runningMode:'VIDEO',numHands:1,minHandDetectionConfidence:0.3,minHandPresenceConfidence:0.3,minTrackingConfidence:0.3
+          });
+          break;
+        } catch(e) { handLandmarker = null; }
+      }
+      if(!handLandmarker) { statusEl.textContent = '❌ Model fail'; return; }
+      statusEl.textContent = '🖐️ Ready';
+
+      let lastTime = -1;
+      function detect() {
+        if(video.readyState >= 2) {
+          const now = performance.now();
+          if(now > lastTime) {
+            lastTime = now;
+            try {
+              const results = handLandmarker.detectForVideo(video, now);
+              if(results.landmarks && results.landmarks.length > 0) {
+                const lm = results.landmarks[0];
+                drawHandLandmarks(lm);
+                prevHandOpen = handOpen;
+                handOpen = isHandOpen(lm);
+                statusEl.textContent = handOpen ? t('jump') : '✊';
+                statusEl.style.color = handOpen ? '#00ff88' : '#c0c0c0';
+
+                // Jump on hand open (edge trigger)
+                if(handOpen && !prevHandOpen) {
+                  if(gameState === 'start' || gameState === 'gameOver') startCountdown();
+                  else jump();
+                }
+              } else {
+                handOpen = false; prevHandOpen = false;
+                overlayCtx.clearRect(0,0,overlayCanvas.width,overlayCanvas.height);
+              }
+            } catch(e) {}
+          }
+        }
+        requestAnimationFrame(detect);
+      }
+      detect();
+    }
+
+    // --- Back to menu ---
+    let _navigating = false;
+    function goToMenu() {
+      if(_navigating) return;
+      _navigating = true;
+      KA.stopBGM();
+      try{const v=document.getElementById('webcam');if(v&&v.srcObject){v.srcObject.getTracks().forEach(tr=>tr.stop());v.srcObject=null;}}catch(e){}
+      if (window.parent !== window) {
+        try { window.parent.postMessage({ type: 'goToGameSelect' }, '*'); } catch(e) {}
+      }
+      setTimeout(()=>{window.location.href='../index.html';},100);
+    }
+    document.getElementById('back-btn').addEventListener('click', goToMenu);
+
+    // --- Init ---
+    resetGame();
+    gameLoop();
+    initHandDetection();
+  </script>
+</body>
+</html>

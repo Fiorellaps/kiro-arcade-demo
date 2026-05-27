@@ -133,6 +133,13 @@
     // --- TTS Audio Queue (Polly) ---
     const ttsQueue = [];
     let ttsPlaying = false;
+    let currentTTSAudio = null;
+
+    function skipTTS() {
+      if (currentTTSAudio) { currentTTSAudio.pause(); currentTTSAudio = null; }
+      ttsQueue.length = 0;
+      ttsPlaying = false;
+    }
 
     function playNextTTS() {
       if (ttsPlaying || ttsQueue.length === 0) return;
@@ -140,11 +147,12 @@
       const b64 = ttsQueue.shift();
       try {
         const audio = new Audio('data:audio/mp3;base64,' + b64);
+        currentTTSAudio = audio;
         audio.volume = 0.7;
-        audio.onended = () => { ttsPlaying = false; playNextTTS(); };
-        audio.onerror = () => { ttsPlaying = false; playNextTTS(); };
-        audio.play().catch(() => { ttsPlaying = false; playNextTTS(); });
-      } catch(e) { ttsPlaying = false; playNextTTS(); }
+        audio.onended = () => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); };
+        audio.onerror = () => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); };
+        audio.play().catch(() => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); });
+      } catch(e) { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); }
     }
 
     async function fetchTTS(text) {
@@ -156,6 +164,7 @@
     }
 
     async function fetchAIComment(event) {
+      return; // AI comments disabled
       if (commentFetching) return;
       commentFetching = true;
       try {
@@ -232,13 +241,13 @@
 
     // Constants
     const GHOST_SIZE = 62;
-    const BASE_TRASH_SIZE = 70;
+    const BASE_TRASH_SIZE = 100;
     let currentTrashSize = BASE_TRASH_SIZE;
-    const LANE_COUNT = 5;
+    const LANE_COUNT = 4;
     const LANE_WIDTH = canvas.width / LANE_COUNT;
     let BASE_FALL_SPEED = 2.8;
     let SPAWN_RATE = 35; // frames between spawns
-    let multiSpawnChance = 0.15; // chance to spawn 2 at once
+    let multiSpawnChance = 0.3; // chance to spawn 2 at once
     let difficultyLevel = 0;
     const DIFFICULTY_COLORS = ['#00ff88', '#ffdd44', '#ff8800', '#ff4444', '#ff00ff'];
 
@@ -283,7 +292,7 @@
       ghostX = canvas.width / 2; ghostTargetX = canvas.width / 2;
       trashCans = []; particles = []; score = 0; frameCount = 0; screenShake = 0;
       BASE_FALL_SPEED = 2.8; SPAWN_RATE = 35; difficultyLevel = 0;
-      currentTrashSize = BASE_TRASH_SIZE; multiSpawnChance = 0;
+      currentTrashSize = BASE_TRASH_SIZE; multiSpawnChance = 0.3;
       aiComments.length = 0; ttsQueue.length = 0; ttsPlaying = false; lastCommentTime = Date.now();
       aiImage = null; aiImageObj = null; aiImageLoading = false;
     }
@@ -291,21 +300,27 @@
     function updateDifficulty() {
       const tier = Math.min(Math.floor(score / 5), 4);
       difficultyLevel = tier;
-      BASE_FALL_SPEED = 2.8 + tier * 0.7;          // 2.8 → 5.6
-      SPAWN_RATE = Math.max(35 - tier * 6, 12);     // 35 → 11
-      currentTrashSize = BASE_TRASH_SIZE + tier * 8;  // 70 → 102
-      multiSpawnChance = 0.15 + tier * 0.15;          // 0.15 → 0.75
+      BASE_FALL_SPEED = 2.8 + tier * 0.8;            // 2.8 → 6.0
+      SPAWN_RATE = Math.max(35 - tier * 6, 10);       // 35 → 11
+      currentTrashSize = BASE_TRASH_SIZE + tier * 12;  // 100 → 148
+      multiSpawnChance = 0.3 + tier * 0.15;            // 0.3 → 0.9
     }
 
     function spawnTrash() {
-      const lane = Math.floor(Math.random() * LANE_COUNT);
-      const sizeVariation = currentTrashSize + (Math.random() - 0.5) * 10;
-      trashCans.push({ x: lane * LANE_WIDTH + LANE_WIDTH/2, y: -currentTrashSize, speed: BASE_FALL_SPEED + Math.random()*1.0, size: sizeVariation });
+      // Random X position across full width (not just lane centers) to eliminate safe columns
+      const margin = currentTrashSize / 2;
+      const x = margin + Math.random() * (canvas.width - margin * 2);
+      const sizeVariation = currentTrashSize + (Math.random() - 0.5) * 15;
+      trashCans.push({ x, y: -currentTrashSize, speed: BASE_FALL_SPEED + Math.random()*1.0, size: sizeVariation });
       // Multi-spawn at higher difficulties
       if (Math.random() < multiSpawnChance) {
-        let lane2 = Math.floor(Math.random() * LANE_COUNT);
-        while (lane2 === lane) lane2 = Math.floor(Math.random() * LANE_COUNT);
-        trashCans.push({ x: lane2 * LANE_WIDTH + LANE_WIDTH/2, y: -currentTrashSize - 20, speed: BASE_FALL_SPEED + Math.random()*0.8, size: sizeVariation });
+        const x2 = margin + Math.random() * (canvas.width - margin * 2);
+        trashCans.push({ x: x2, y: -currentTrashSize - 30, speed: BASE_FALL_SPEED + Math.random()*0.8, size: sizeVariation });
+      }
+      // Triple spawn at highest difficulties
+      if (difficultyLevel >= 3 && Math.random() < 0.3) {
+        const x3 = margin + Math.random() * (canvas.width - margin * 2);
+        trashCans.push({ x: x3, y: -currentTrashSize - 60, speed: BASE_FALL_SPEED + Math.random()*0.6, size: sizeVariation * 0.9 });
       }
     }
 
@@ -351,7 +366,7 @@
           saveHighScore(score); lastRanking = saveToRanking(score);
           gameState = 'gameOver'; gameOverTime = Date.now(); screenShake = 10; KA.hit(); KA.stopBGM();
           // Notify parent (arcade mode)
-          try { window.parent.postMessage({ type: 'gameOver', score: score }, '*'); } catch(e) {}
+          try { window.parent.postMessage({ type: 'gameOver', score: score * 3 }, '*'); } catch(e) {}
           fetchAIComment('crashed! final score ' + score);
           fetchAIImage();
           return;
@@ -517,7 +532,10 @@
       _navigating = true;
       KA.stopBGM();
       try { const v=document.getElementById('webcam'); if(v&&v.srcObject){v.srcObject.getTracks().forEach(tr=>tr.stop());v.srcObject=null;} } catch(e){}
-      setTimeout(() => { window.location.href = '../index.html'; }, 50);
+      if (window.parent !== window) {
+        try { window.parent.postMessage({ type: 'goToGameSelect' }, '*'); } catch(e) {}
+      }
+      setTimeout(() => { window.location.href = '../index.html'; }, 100);
     }
     document.getElementById('back-btn').addEventListener('click', goToMenu);
 

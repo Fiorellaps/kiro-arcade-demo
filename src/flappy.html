@@ -183,6 +183,13 @@
     // --- TTS Audio Queue (Polly) ---
     const ttsQueue = [];
     let ttsPlaying = false;
+    let currentTTSAudio = null;
+
+    function skipTTS() {
+      if (currentTTSAudio) { currentTTSAudio.pause(); currentTTSAudio = null; }
+      ttsQueue.length = 0;
+      ttsPlaying = false;
+    }
 
     function playNextTTS() {
       if (ttsPlaying || ttsQueue.length === 0) return;
@@ -190,11 +197,12 @@
       const b64 = ttsQueue.shift();
       try {
         const audio = new Audio('data:audio/mp3;base64,' + b64);
+        currentTTSAudio = audio;
         audio.volume = 0.7;
-        audio.onended = () => { ttsPlaying = false; playNextTTS(); };
-        audio.onerror = () => { ttsPlaying = false; playNextTTS(); };
-        audio.play().catch(() => { ttsPlaying = false; playNextTTS(); });
-      } catch(e) { ttsPlaying = false; playNextTTS(); }
+        audio.onended = () => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); };
+        audio.onerror = () => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); };
+        audio.play().catch(() => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); });
+      } catch(e) { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); }
     }
 
     async function fetchTTS(text) {
@@ -213,6 +221,7 @@
     }
 
     async function fetchAIComment(event) {
+      return; // AI comments disabled
       if (commentFetching) return;
       commentFetching = true;
       try {
@@ -679,7 +688,7 @@
         screenShake = 10;
         KA.hit(); KA.stopBGM();
         // Notify parent (arcade mode)
-        try { window.parent.postMessage({ type: 'gameOver', score: score }, '*'); } catch(e) {}
+        try { window.parent.postMessage({ type: 'gameOver', score: score * 10 }, '*'); } catch(e) {}
         // AI: fetch game over comment + image
         fetchAIComment('crashed! final score ' + score);
         fetchAIImage();
@@ -1008,7 +1017,11 @@
           video.srcObject = null;
         }
       } catch(e) {}
-      setTimeout(() => { window.location.href = '../index.html'; }, 50);
+      // If inside iframe (arcade mode), tell parent to go to game selection
+      if (window.parent !== window) {
+        try { window.parent.postMessage({ type: 'goToGameSelect' }, '*'); } catch(e) {}
+      }
+      setTimeout(() => { window.location.href = '../index.html'; }, 100);
     }
 
     // Overlay canvas for drawing hand skeleton

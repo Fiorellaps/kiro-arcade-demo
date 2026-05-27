@@ -153,6 +153,13 @@
     // --- TTS Audio Queue (Polly) ---
     const ttsQueue = [];
     let ttsPlaying = false;
+    let currentTTSAudio = null;
+
+    function skipTTS() {
+      if (currentTTSAudio) { currentTTSAudio.pause(); currentTTSAudio = null; }
+      ttsQueue.length = 0;
+      ttsPlaying = false;
+    }
 
     function playNextTTS() {
       if (ttsPlaying || ttsQueue.length === 0) return;
@@ -160,11 +167,12 @@
       const b64 = ttsQueue.shift();
       try {
         const audio = new Audio('data:audio/mp3;base64,' + b64);
+        currentTTSAudio = audio;
         audio.volume = 0.7;
-        audio.onended = () => { ttsPlaying = false; playNextTTS(); };
-        audio.onerror = () => { ttsPlaying = false; playNextTTS(); };
-        audio.play().catch(() => { ttsPlaying = false; playNextTTS(); });
-      } catch(e) { ttsPlaying = false; playNextTTS(); }
+        audio.onended = () => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); };
+        audio.onerror = () => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); };
+        audio.play().catch(() => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); });
+      } catch(e) { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); }
     }
 
     async function fetchTTS(text) {
@@ -288,7 +296,10 @@
       _navigating = true;
       KA.stopBGM();
       try { const v=document.getElementById('webcam'); if(v&&v.srcObject){v.srcObject.getTracks().forEach(tr=>tr.stop());v.srcObject=null;} } catch(e){}
-      setTimeout(() => { window.location.href = '../index.html'; }, 50);
+      if (window.parent !== window) {
+        try { window.parent.postMessage({ type: 'goToGameSelect' }, '*'); } catch(e) {}
+      }
+      setTimeout(() => { window.location.href = '../index.html'; }, 100);
     }
     document.getElementById('back-btn').addEventListener('click', goToMenu);
 

@@ -135,6 +135,13 @@
     // --- TTS Audio Queue (Polly) ---
     const ttsQueue = [];
     let ttsPlaying = false;
+    let currentTTSAudio = null;
+
+    function skipTTS() {
+      if (currentTTSAudio) { currentTTSAudio.pause(); currentTTSAudio = null; }
+      ttsQueue.length = 0;
+      ttsPlaying = false;
+    }
 
     function playNextTTS() {
       if (ttsPlaying || ttsQueue.length === 0) return;
@@ -142,11 +149,12 @@
       const b64 = ttsQueue.shift();
       try {
         const audio = new Audio('data:audio/mp3;base64,' + b64);
+        currentTTSAudio = audio;
         audio.volume = 0.7;
-        audio.onended = () => { ttsPlaying = false; playNextTTS(); };
-        audio.onerror = () => { ttsPlaying = false; playNextTTS(); };
-        audio.play().catch(() => { ttsPlaying = false; playNextTTS(); });
-      } catch(e) { ttsPlaying = false; playNextTTS(); }
+        audio.onended = () => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); };
+        audio.onerror = () => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); };
+        audio.play().catch(() => { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); });
+      } catch(e) { currentTTSAudio = null; ttsPlaying = false; playNextTTS(); }
     }
 
     async function fetchTTS(text) {
@@ -158,6 +166,7 @@
     }
 
     async function fetchAIComment(event) {
+      return; // AI comments disabled
       if (commentFetching) return;
       commentFetching = true;
       try {
@@ -274,7 +283,7 @@
 
     function resetGame() {
       items=[]; sliceTrail=[]; particles=[]; score=0; lives=3; frameCount=0;
-      spawnRate=70; fallSpeed=2.5; bombChance=0.15; difficultyLevel=0;
+      spawnRate=55; fallSpeed=3.2; bombChance=0.18; difficultyLevel=0;
       aiComments.length = 0; ttsQueue.length = 0; ttsPlaying = false; lastCommentTime = Date.now();
       aiImage = null; aiImageObj = null; aiImageLoading = false;
     }
@@ -306,7 +315,7 @@
       const dist = Math.sqrt(dx*dx+dy*dy);
       const swipeDx = last.x-prev.x, swipeDy = last.y-prev.y;
       const swipeSpeed = Math.sqrt(swipeDx*swipeDx+swipeDy*swipeDy);
-      return dist < item.size*1.2 && swipeSpeed > 2;
+      return dist < item.size*1.5 && swipeSpeed > 2;
     }
 
     function update() {
@@ -324,12 +333,12 @@
 
       // Spawn from top
       if(frameCount % spawnRate === 0) spawnItem();
-      // Progressive difficulty every 400 frames
-      if(frameCount % 400 === 0) {
-        spawnRate = Math.max(spawnRate - 6, 20);
-        fallSpeed = Math.min(fallSpeed + 0.4, 7);
-        bombChance = Math.min(bombChance + 0.03, 0.35);
-        difficultyLevel = Math.min(Math.floor((fallSpeed - 2.5) / 0.9), 4);
+      // Progressive difficulty every 250 frames
+      if(frameCount % 250 === 0) {
+        spawnRate = Math.max(spawnRate - 7, 15);
+        fallSpeed = Math.min(fallSpeed + 0.5, 8.5);
+        bombChance = Math.min(bombChance + 0.04, 0.4);
+        difficultyLevel = Math.min(Math.floor((fallSpeed - 3.2) / 0.9), 4);
       }
 
       // Update items — fall from sky
@@ -366,7 +375,7 @@
       }
 
       // Slice trail decay
-      if(sliceTrail.length > 20) sliceTrail.shift();
+      if(sliceTrail.length > 35) sliceTrail.shift();
 
       // AI comments — fetch periodically during play
       updateAIComments();
@@ -390,7 +399,7 @@
       gameOverTime = Date.now();
       KA.lose(); KA.stopBGM();
       // Notify parent (arcade mode)
-      try { window.parent.postMessage({ type: 'gameOver', score: score }, '*'); } catch(e) {}
+      try { window.parent.postMessage({ type: 'gameOver', score: score * 3 }, '*'); } catch(e) {}
       fetchAIComment('game over! final score ' + score);
       fetchAIImage();
     }
@@ -415,12 +424,12 @@
 
       // Slice trail — thicker glow
       if(sliceTrail.length > 1 && handOpen) {
-        ctx.strokeStyle = 'rgba(121,14,203,0.7)'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(121,14,203,0.7)'; ctx.lineWidth = 14; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
         ctx.beginPath(); ctx.moveTo(sliceTrail[0].x, sliceTrail[0].y);
         for(let i=1;i<sliceTrail.length;i++) ctx.lineTo(sliceTrail[i].x, sliceTrail[i].y);
         ctx.stroke();
         // Outer glow
-        ctx.strokeStyle = 'rgba(121,14,203,0.2)'; ctx.lineWidth = 22;
+        ctx.strokeStyle = 'rgba(121,14,203,0.2)'; ctx.lineWidth = 30;
         ctx.beginPath(); ctx.moveTo(sliceTrail[0].x, sliceTrail[0].y);
         for(let i=1;i<sliceTrail.length;i++) ctx.lineTo(sliceTrail[i].x, sliceTrail[i].y);
         ctx.stroke();
@@ -537,7 +546,10 @@
       _navigating = true;
       KA.stopBGM();
       try { const v=document.getElementById('webcam'); if(v&&v.srcObject){v.srcObject.getTracks().forEach(tr=>tr.stop());v.srcObject=null;} } catch(e){}
-      setTimeout(() => { window.location.href = '../index.html'; }, 50);
+      if (window.parent !== window) {
+        try { window.parent.postMessage({ type: 'goToGameSelect' }, '*'); } catch(e) {}
+      }
+      setTimeout(() => { window.location.href = '../index.html'; }, 100);
     }
     document.getElementById('back-btn').addEventListener('click', goToMenu);
     document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();startCountdown();}if(e.code==='KeyM')KA.toggle();});
