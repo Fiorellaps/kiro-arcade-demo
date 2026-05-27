@@ -18,8 +18,9 @@ os.makedirs(RANKINGS_DIR, exist_ok=True)
 RANKING_KEYS = {
     'flappy':     'flappyKiroRanking',
     'fruit-ninja':'fruitNinjaRanking',
-    'rps':        'rpsRanking',
+    'super-kiro': 'superKiroRanking',
     'ghost-dodge':'ghostDodgeRanking',
+    'global':     'globalRanking',
 }
 
 def ranking_path(game):
@@ -120,6 +121,18 @@ COMMENT_THEMES = {
             f"You're a friendly rock paper scissors narrator who says 'bro'. {COMMENT_BASE_RULE_EN} ONE short fun phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase, no quotes.",
             f"You're a friendly magician who predicts plays with humor. {COMMENT_BASE_RULE_EN} ONE funny phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
             f"You're a living emoji who overreacts politely. {COMMENT_BASE_RULE_EN} ONE positive phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
+        ]
+    },
+    'super-kiro': {
+        'es': [
+            f"Eres un narrador de plataformas amigable que dice 'bro' y anima al jugador a saltar. {COMMENT_BASE_RULE} UNA frase corta y motivadora (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase, sin comillas.",
+            f"Eres un fantasma simpático que comenta las acrobacias del jugador. {COMMENT_BASE_RULE} UNA frase positiva (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
+            f"Eres un robot adorable que se emociona con cada salto. {COMMENT_BASE_RULE} UNA frase tierna (max 12 palabras). Score: {{score}}. Evento: {{event}}. Solo la frase.",
+        ],
+        'en': [
+            f"You're a friendly platformer narrator who says 'bro' and cheers jumps. {COMMENT_BASE_RULE_EN} ONE short motivating phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase, no quotes.",
+            f"You're a cute ghost commenting on the player's acrobatics. {COMMENT_BASE_RULE_EN} ONE positive phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
+            f"You're an adorable robot who gets excited about every jump. {COMMENT_BASE_RULE_EN} ONE cute phrase (max 12 words). Score: {{score}}. Event: {{event}}. Just the phrase.",
         ]
     }
 }

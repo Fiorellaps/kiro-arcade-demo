@@ -31,6 +31,17 @@
     }
     #mute-btn:hover { background: rgba(121,14,203,0.6); }
 
+    /* Skip TTS button */
+    #skip-tts-btn {
+      position: fixed; top: 15px; right: 190px;
+      background: rgba(255,140,0,0.3); color: #fff;
+      border: 1px solid #ff8c00; padding: 6px 14px;
+      border-radius: 6px; font-size: 14px; cursor: pointer; z-index: 100;
+      transition: all 0.2s; display: none;
+    }
+    #skip-tts-btn:hover { background: rgba(255,140,0,0.6); transform: scale(1.05); }
+    #skip-tts-btn.visible { display: block; }
+
     /* Steps container */
     .step {
       min-height: 100vh;
@@ -263,6 +274,7 @@
     <option value="en">🇬🇧 English</option>
   </select>
   <button id="mute-btn" onclick="toggleMute()">🔊</button>
+  <button id="skip-tts-btn" onclick="skipCurrentNarration()">⏭️ Skip</button>
 
   <!-- ==================== STEP 0: Bienvenida ==================== -->
   <div class="step active" id="step-0">
@@ -471,6 +483,9 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
         <div class="content-card">
           <h2>🎮 Elige tu juego</h2>
           <p>Cada juego tiene 3 vidas por partida. ¡Consigue el mejor puntaje!</p>
+          <div id="arcade-status-inline" style="text-align:center;margin-bottom:14px;padding:10px 16px;background:rgba(121,14,203,0.1);border:1px solid rgba(121,14,203,0.3);border-radius:10px;">
+            <span id="arcade-status-inline-text" style="color:#c084fc;font-size:15px;font-weight:600;"></span>
+          </div>
           <div class="game-grid">
             <div class="game-card" onclick="launchGame('src/flappy.html')">
               <div class="emoji">🐦</div>
@@ -506,10 +521,16 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       </div>
 
       <div class="content-block" id="s3-b3">
+        <!-- Round status (visible during arcade) -->
+        <div id="arcade-status-bar" style="display:none;text-align:center;margin-bottom:16px;padding:12px 20px;background:rgba(121,14,203,0.1);border:1px solid rgba(121,14,203,0.3);border-radius:12px;">
+          <span id="arcade-status-text" style="color:#c084fc;font-size:16px;font-weight:600;"></span>
+          <span style="margin-left:16px;color:rgba(255,255,255,0.5);font-size:14px;" id="arcade-status-score"></span>
+          <button class="btn btn-secondary" onclick="finishArcade()" style="margin-left:16px;padding:6px 16px;font-size:14px;">🏁 Acabar juego</button>
+        </div>
         <div class="btn-row">
           <button class="btn btn-secondary" onclick="goToStep(2)">← Volver</button>
           <button class="btn btn-secondary" onclick="replayNarration(3)">🔄 Repetir</button>
-          <button class="btn btn-secondary" onclick="resetRankings()" style="font-size:14px;">🗑️ Resetear rankings</button>
+          <button class="btn btn-secondary" onclick="finishArcade()">🏁 Acabar juego</button>
         </div>
       </div>
     </div>
@@ -518,11 +539,10 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
   <!-- ==================== STEP 4: Juego en iframe (3 rondas) ==================== -->
   <div class="step" id="step-4">
     <div id="round-hud" style="display:flex;align-items:center;justify-content:center;gap:24px;margin-bottom:10px;width:100%;max-width:860px;">
-      <div style="color:#c084fc;font-size:16px;font-weight:600;" id="round-label">Ronda 1 / 3</div>
+      <div style="color:#c084fc;font-size:16px;font-weight:600;" id="round-label">Ronda 1 / 2</div>
       <div style="display:flex;gap:6px;" id="round-dots">
-        <span style="width:14px;height:14px;border-radius:50%;background:#790ECB;display:inline-block;"></span>
-        <span style="width:14px;height:14px;border-radius:50%;background:rgba(121,14,203,0.3);display:inline-block;"></span>
-        <span style="width:14px;height:14px;border-radius:50%;background:rgba(121,14,203,0.3);display:inline-block;"></span>
+        <span onclick="goToStep(3)" style="width:14px;height:14px;border-radius:50%;background:#790ECB;display:inline-block;cursor:pointer;"></span>
+        <span onclick="goToStep(3)" style="width:14px;height:14px;border-radius:50%;background:rgba(121,14,203,0.3);display:inline-block;cursor:pointer;"></span>
       </div>
       <div style="color:rgba(255,255,255,0.5);font-size:14px;" id="total-score-label">Total: 0</div>
     </div>
@@ -577,21 +597,10 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
         </div>
       </div>
 
-      <div class="content-block" id="s5-b2">
-        <div class="content-card" style="text-align:center;">
-          <h2>🎓 ¿Eres estudiante?</h2>
-          <p>Puedes acceder a hasta <strong style="color:#00ff88;">1000 créditos</strong> para usar Kiro. Entra aquí y regístrate:</p>
-          <a href="https://kiro.dev/students/" target="_blank" rel="noopener" class="btn btn-primary" style="text-decoration:none;margin-top:12px;font-size:16px;">
-            🎓 kiro.dev/students →
-          </a>
-        </div>
-      </div>
-
       <div class="content-block" id="s5-b3">
         <div class="btn-row">
           <a href="learn-kiro.html" class="btn btn-primary" style="text-decoration:none;">✨ Aprende sobre Kiro</a>
-          <button class="btn btn-secondary" onclick="goToStep(3)">🎮 Jugar otro juego</button>
-          <button class="btn btn-secondary" onclick="goToStep(0)">🏠 Inicio</button>
+          <button class="btn btn-secondary" onclick="goToStep(0)">Inicio</button>
         </div>
       </div>
     </div>
@@ -637,7 +646,6 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
         5: [
           { speech: '¡Enhorabuena! Lo has hecho genial. Ya conoces Kiro y lo que puede hacer.', blockId: 's5-b0' },
           { speech: '¿A qué esperas para convertirte en Kiro Champion? Escanea el QR y empieza a probarlo.', blockId: 's5-b1' },
-          { speech: 'Si eres estudiante, puedes acceder a hasta 1000 créditos. ¡No te lo pierdas!', blockId: 's5-b2' },
           { speech: '¡Gracias por jugar! Nos vemos en Kiro.', blockId: 's5-b3' },
         ],
       },
@@ -718,7 +726,7 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
     async function speakWithPolly(text) {
       if (muted) return null;
 
-      // 1) Intentar Polly con timeout de 10s
+      // 1) Intentar Polly con timeout de 4s
       try {
         const resp = await withTimeout(
           fetch('/api/tts', {
@@ -726,7 +734,7 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text, lang })
           }),
-          5000
+          3000
         );
         if (resp && resp.json) {
           const data = await resp.json();
@@ -738,16 +746,16 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
               audio.onended = () => { currentAudio = null; resolve(); };
               audio.onerror = () => { currentAudio = null; resolve(); };
               audio.play().catch(() => { currentAudio = null; resolve(); });
-            }), 15000);
+            }), 10000);
           }
         }
       } catch (e) {
         console.warn('[TTS] Polly failed:', e.message || e);
       }
 
-      // 2) Fallback: Web Speech API con timeout de 12s
+      // 2) Fallback: Web Speech API con timeout de 6s
       console.log('[TTS] Using browser fallback voice');
-      return withTimeout(speakFallback(text), 12000);
+      return withTimeout(speakFallback(text), 6000);
     }
 
     function speakFallback(text) {
@@ -789,6 +797,9 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       if (narrationAbort) narrationAbort.abort();
       const controller = new AbortController();
       narrationAbort = controller;
+
+      // Show skip button
+      document.getElementById('skip-tts-btn').classList.add('visible');
 
       const script = getScript(step);
       const speechEl = document.getElementById('speech-' + step);
@@ -832,6 +843,8 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
           await new Promise(r => setTimeout(r, 600));
         }
       }
+      // Narration finished — hide skip button
+      document.getElementById('skip-tts-btn').classList.remove('visible');
     }
 
     function skipNarration(step) {
@@ -847,6 +860,12 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       const script = getScript(step);
       const speechEl = document.getElementById('speech-' + step);
       if (script.length > 0) speechEl.innerHTML = script.map(s => s.speech).join('<br>');
+      // Hide skip button
+      document.getElementById('skip-tts-btn').classList.remove('visible');
+    }
+
+    function skipCurrentNarration() {
+      skipNarration(currentStep);
     }
 
     function replayNarration(step) {
@@ -886,7 +905,7 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
     }
 
     // ==================== Navigation ====================
-    function goToStep(step) {
+    function goToStep(step, skipNarr) {
       // Stop current narration
       if (narrationAbort) narrationAbort.abort();
       if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -907,8 +926,13 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       }
 
       // Start narration for new step (skip step 4 — that's the game iframe)
-      if (step !== 4) {
+      if (step !== 4 && !skipNarr) {
         setTimeout(() => runNarration(step), 400);
+      }
+      // If skipping narration, reveal all content blocks immediately
+      if (skipNarr) {
+        const contentArea = document.getElementById('content-' + step);
+        if (contentArea) contentArea.querySelectorAll('.content-block').forEach(b => b.classList.add('visible'));
       }
     }
 
@@ -929,8 +953,11 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
 
     function launchGame(url) {
       arcadeGameUrl = url;
-      arcadeRound = 0;
-      arcadeScores = [];
+      // If no arcade in progress, start fresh
+      if (arcadeRound === 0 || arcadeRound >= 2) {
+        arcadeRound = 0;
+        arcadeScores = [];
+      }
       goToStep(4);
       startArcadeRound();
     }
@@ -949,12 +976,30 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
 
     function updateRoundHUD() {
       document.getElementById('round-label').textContent =
-        (lang === 'en' ? 'Round ' : 'Ronda ') + arcadeRound + ' / 3';
+        (lang === 'en' ? 'Round ' : 'Ronda ') + arcadeRound + ' / 2';
       const dots = document.getElementById('round-dots');
-      dots.innerHTML = [1,2,3].map(i =>
-        `<span style="width:14px;height:14px;border-radius:50%;display:inline-block;background:${i < arcadeRound ? '#00ff88' : i === arcadeRound ? '#790ECB' : 'rgba(121,14,203,0.3)'};"></span>`
+      dots.innerHTML = [1,2].map(i =>
+        `<span onclick="goToStep(3, true); updateArcadeStatusBar();" style="width:14px;height:14px;border-radius:50%;display:inline-block;cursor:pointer;background:${i < arcadeRound ? '#00ff88' : i === arcadeRound ? '#790ECB' : 'rgba(121,14,203,0.3)'};"></span>`
       ).join('');
       document.getElementById('total-score-label').textContent = 'Total: ' + arcadeScores.reduce((a,b) => a+b, 0);
+    }
+
+    function updateArcadeStatusBar() {
+      const bar = document.getElementById('arcade-status-bar');
+      const inlineText = document.getElementById('arcade-status-inline-text');
+      if (arcadeRound > 0 && arcadeRound <= 2) {
+        bar.style.display = 'block';
+        const roundsLeft = 2 - arcadeRound;
+        const statusText = (lang === 'en' ? 'Round ' : 'Ronda ') + arcadeRound + ' / 2' +
+          (roundsLeft > 0 ? (lang === 'en' ? ' — Pick next game' : ' — Elige siguiente juego') : '');
+        document.getElementById('arcade-status-text').textContent = statusText;
+        inlineText.textContent = statusText;
+        document.getElementById('arcade-status-score').textContent =
+          'Total: ' + arcadeScores.reduce((a,b) => a+b, 0);
+      } else {
+        bar.style.display = 'none';
+        inlineText.textContent = '';
+      }
     }
 
     function showRoundCountdown(callback) {
@@ -962,30 +1007,32 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       const textEl = document.getElementById('round-countdown-text');
       const numEl = document.getElementById('round-countdown-num');
       overlay.style.display = 'flex';
-      textEl.textContent = (lang === 'en' ? 'Round ' : 'Ronda ') + arcadeRound + ' / 3';
-      let count = 3;
-      numEl.textContent = count;
-      const interval = setInterval(() => {
-        count--;
-        if (count <= 0) {
-          clearInterval(interval);
-          overlay.style.display = 'none';
-          callback();
-        } else {
-          numEl.textContent = count;
-        }
+      textEl.textContent = (lang === 'en' ? 'Round ' : 'Ronda ') + arcadeRound + ' / 2';
+      numEl.textContent = '';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        callback();
       }, 1000);
     }
 
     window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'goToGameSelect') {
+        document.getElementById('game-iframe').src = '';
+        goToStep(3, true); // skip narration
+        updateArcadeStatusBar();
+        return;
+      }
       if (e.data && e.data.type === 'gameOver' && currentStep === 4) {
         arcadeScores.push(e.data.score || 0);
         updateRoundHUD();
         setTimeout(() => {
-          if (arcadeRound < 3) {
-            startArcadeRound();
-          } else {
+          if (arcadeRound >= 2) {
             finishArcade();
+          } else {
+            // Go back to game selection for next round
+            document.getElementById('game-iframe').src = '';
+            goToStep(3, true);
+            updateArcadeStatusBar();
           }
         }, 2500);
       }
@@ -1040,7 +1087,8 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
 
     function exitGame() {
       document.getElementById('game-iframe').src = '';
-      goToStep(3);
+      goToStep(3, true);
+      updateArcadeStatusBar();
     }
 
     // ==================== Copy prompt ====================
