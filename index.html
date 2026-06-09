@@ -72,7 +72,7 @@
     /* ===== Ghost Narrator ===== */
     .ghost-narrator {
       display: flex; align-items: flex-start; gap: 20px;
-      width: 100%; max-width: 860px; margin-bottom: 20px;
+      width: 100%; max-width: 90vw; margin-bottom: 20px;
     }
     .ghost-avatar {
       flex-shrink: 0; width: 120px; height: 120px;
@@ -109,8 +109,8 @@
       border-right-color: rgba(121,14,203,0.35);
     }
     .ghost-speech-text {
-      color: rgba(255,255,255,0.85); font-size: 17px;
-      line-height: 1.6; min-height: 24px;
+      color: rgba(255,255,255,0.85); font-size: 20px;
+      line-height: 1.7; min-height: 24px;
     }
     .ghost-speech-text .typing-cursor {
       display: inline-block; width: 2px; height: 18px;
@@ -122,7 +122,7 @@
 
     /* Content area below ghost */
     .content-area {
-      width: 100%; max-width: 860px;
+      width: 100%; max-width: 90vw;
     }
     .content-block {
       opacity: 0; transform: translateY(16px);
@@ -141,15 +141,15 @@
       box-shadow: 0 0 40px rgba(121,14,203,0.1);
     }
     .content-card h2 {
-      font-size: 20px; color: #c084fc; margin: 0 0 10px;
+      font-size: 26px; color: #c084fc; margin: 0 0 14px;
     }
     .content-card p {
-      color: rgba(255,255,255,0.7); font-size: 15px;
-      line-height: 1.7; margin-bottom: 10px;
+      color: rgba(255,255,255,0.7); font-size: 19px;
+      line-height: 1.8; margin-bottom: 12px;
     }
     .content-card ul {
-      color: rgba(255,255,255,0.65); font-size: 14px;
-      line-height: 1.8; padding-left: 20px; margin-bottom: 12px;
+      color: rgba(255,255,255,0.65); font-size: 17px;
+      line-height: 2; padding-left: 24px; margin-bottom: 14px;
     }
     .content-card a { color: #c084fc; text-decoration: none; }
     .content-card a:hover { text-decoration: underline; }
@@ -157,8 +157,8 @@
     /* Buttons */
     .btn {
       display: inline-flex; align-items: center; gap: 8px;
-      padding: 14px 32px; border-radius: 12px; border: none;
-      font-size: 18px; font-weight: 600; cursor: pointer;
+      padding: 16px 38px; border-radius: 12px; border: none;
+      font-size: 20px; font-weight: 600; cursor: pointer;
       transition: all 0.2s; font-family: 'Segoe UI', sans-serif;
     }
     .btn:hover { transform: translateY(-2px); }
@@ -183,7 +183,7 @@
     .feature-pills { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
     .pill {
       background: rgba(121,14,203,0.2); border: 1px solid rgba(121,14,203,0.4);
-      border-radius: 20px; padding: 5px 14px; font-size: 13px; color: #c084fc;
+      border-radius: 20px; padding: 7px 16px; font-size: 15px; color: #c084fc;
     }
 
     /* Prompt box */
@@ -215,9 +215,9 @@
       border-color: #790ECB; background: rgba(121,14,203,0.12);
       transform: translateY(-2px); box-shadow: 0 0 20px rgba(121,14,203,0.3);
     }
-    .game-card .emoji { font-size: 36px; margin-bottom: 8px; }
-    .game-card .name { font-size: 16px; font-weight: 600; }
-    .game-card .desc { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+    .game-card .emoji { font-size: 44px; margin-bottom: 10px; }
+    .game-card .name { font-size: 20px; font-weight: 600; }
+    .game-card .desc { font-size: 15px; color: rgba(255,255,255,0.4); margin-top: 6px; }
 
     /* Player input */
     .player-input {
@@ -248,7 +248,7 @@
       padding: 6px 10px; border-bottom: 1px solid rgba(121,14,203,0.3);
     }
     .ranking-table td {
-      padding: 8px 10px; color: rgba(255,255,255,0.7); font-size: 14px;
+      padding: 10px 12px; color: rgba(255,255,255,0.7); font-size: 17px;
       border-bottom: 1px solid rgba(255,255,255,0.05);
     }
     .ranking-table tr:first-child td { color: #ffd700; font-weight: 600; }
@@ -265,6 +265,75 @@
       cursor: pointer; text-align: center; margin-top: 8px;
     }
     .skip-link:hover { color: rgba(255,255,255,0.6); }
+
+    /* ===== Responsive: Pantalla vertical / portrait (alto > ancho) ===== */
+    @media (orientation: portrait) and (min-height: 900px) {
+      .step {
+        padding: 40px 24px 60px;
+        justify-content: flex-start;
+      }
+      .ghost-narrator {
+        max-width: 100%;
+        margin-bottom: 30px;
+      }
+      .ghost-avatar { width: 100px; height: 100px; }
+      .ghost-avatar .ghost-body { font-size: 72px; }
+      .ghost-speech {
+        max-height: 250px;
+        padding: 20px 24px;
+      }
+      .ghost-speech-text { font-size: 19px; line-height: 1.7; }
+      .content-area { max-width: 100%; }
+      .content-card { padding: 32px 28px; }
+      .content-card h2 { font-size: 24px; margin-bottom: 14px; }
+      .content-card p { font-size: 17px; line-height: 1.8; }
+      .content-card ul { font-size: 16px; line-height: 2; }
+      .game-grid { grid-template-columns: 1fr 1fr; gap: 18px; }
+      .game-card { padding: 28px 20px; }
+      .game-card .emoji { font-size: 48px; margin-bottom: 12px; }
+      .game-card .name { font-size: 20px; }
+      .game-card .desc { font-size: 15px; }
+      .btn { font-size: 20px; padding: 16px 36px; }
+      .btn-row { gap: 18px; margin-top: 28px; }
+      .prompt-box { font-size: 14px; max-height: 300px; }
+      .player-input { font-size: 22px; padding: 14px 24px; width: 80%; max-width: 400px; }
+      .ranking-table td { font-size: 16px; padding: 10px 12px; }
+      .ranking-table th { font-size: 14px; }
+      .pill { font-size: 15px; padding: 7px 16px; }
+      .qr-section { flex-direction: column; align-items: center; text-align: center; gap: 16px; }
+      .qr-section .qr-text { text-align: center; }
+      .qr-section .qr-text h4 { font-size: 18px; }
+      .qr-section .qr-text p { font-size: 15px; }
+      #game-iframe { height: 70vh; max-width: 100%; }
+    }
+
+    /* Pantallas portrait muy altas (monitores verticales grandes, ~1080x1920+) */
+    @media (orientation: portrait) and (min-height: 1400px) {
+      .step { padding: 50px 36px 80px; }
+      .ghost-narrator { max-width: 100%; }
+      .ghost-avatar { width: 140px; height: 140px; }
+      .ghost-avatar .ghost-body { font-size: 100px; }
+      .ghost-speech { max-height: 300px; padding: 24px 28px; }
+      .ghost-speech-text { font-size: 22px; }
+      .content-area { max-width: 100%; }
+      .content-card { padding: 40px 36px; border-radius: 20px; }
+      .content-card h2 { font-size: 28px; }
+      .content-card p { font-size: 19px; }
+      .content-card ul { font-size: 18px; }
+      .game-grid { gap: 24px; margin: 24px 0; }
+      .game-card { padding: 36px 24px; border-radius: 16px; }
+      .game-card .emoji { font-size: 56px; margin-bottom: 16px; }
+      .game-card .name { font-size: 24px; }
+      .game-card .desc { font-size: 17px; margin-top: 8px; }
+      .btn { font-size: 22px; padding: 18px 42px; border-radius: 14px; }
+      .player-input { font-size: 26px; padding: 16px 28px; width: 90%; max-width: 500px; }
+      .ranking-table td { font-size: 18px; padding: 12px 14px; }
+      .ranking-table th { font-size: 15px; }
+      .pill { font-size: 16px; padding: 8px 18px; }
+      #game-iframe { height: 65vh; max-width: 100%; border-width: 3px; border-radius: 16px; }
+      .highlight-box { padding: 20px 24px; }
+      .highlight-box p { font-size: 17px; }
+    }
   </style>
 </head>
 <body>
@@ -282,12 +351,12 @@
       <div class="ghost-avatar" id="ghost-0" style="width:160px;height:160px;">
         <div class="ghost-body" style="font-size:130px;">👻</div>
       </div>
-      <div class="ghost-speech" style="max-width:600px;text-align:center;">
+      <div class="ghost-speech" style="max-width:800px;text-align:center;">
         <div class="ghost-speech-text" id="speech-0" style="font-size:20px;"></div>
       </div>
     </div>
 
-    <div class="content-area" id="content-0" style="max-width:500px;margin-top:20px;">
+    <div class="content-area" id="content-0" style="max-width:700px;margin-top:20px;">
       <!-- Tap to start overlay -->
       <div id="tap-to-start" style="text-align:center;margin-top:30px;cursor:pointer;" onclick="unlockAudioAndStart()">
         <div style="font-size:60px;animation:ghostFloat 2s ease-in-out infinite;">👆</div>
@@ -358,6 +427,17 @@
         <div class="content-card">
           <h2>🎓 Kiro en la Educación</h2>
           <p>Kiro está transformando la forma en que los y las estudiantes aprenden a programar. Los y las estudiantes pueden enfocarse en entender conceptos mientras la IA les ayuda con la implementación. Esto acelera el aprendizaje y permite crear proyectos reales desde el primer día.</p>
+          <div style="margin:16px 0;">
+            <p style="margin-bottom:10px;"><strong>🎬 Spec-Driven Development en acción:</strong></p>
+            <video controls playsinline style="width:100%;border-radius:12px;border:1px solid rgba(121,14,203,0.3);" onloadedmetadata="this.playbackRate=1.5">
+              <source src="videos/kiro-spec.mp4" type="video/mp4">
+              Tu navegador no soporta el tag de video.
+            </video>
+          </div>
+          <div style="margin:16px 0;">
+            <p style="margin-bottom:10px;"><strong>🔧 Kiro Hooks:</strong></p>
+            <img src="images/kiro-hooks.png" alt="Kiro Hooks" style="width:100%;border-radius:12px;border:1px solid rgba(121,14,203,0.3);">
+          </div>
           <div class="highlight-box">
             <p>📰 <strong>Lee más:</strong> Descubre cómo Kiro está acelerando el desarrollo GovTech y educativo.</p>
             <a href="https://aws.amazon.com/es/blogs/publicsector/accelerating-govtech-development-with-kiro/" target="_blank" rel="noopener" style="font-size:13px;">
@@ -538,7 +618,7 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
 
   <!-- ==================== STEP 4: Juego en iframe (3 rondas) ==================== -->
   <div class="step" id="step-4">
-    <div id="round-hud" style="display:flex;align-items:center;justify-content:center;gap:24px;margin-bottom:10px;width:100%;max-width:860px;">
+    <div id="round-hud" style="display:flex;align-items:center;justify-content:center;gap:24px;margin-bottom:10px;width:100%;max-width:90vw;">
       <div style="color:#c084fc;font-size:16px;font-weight:600;" id="round-label">Ronda 1 / 2</div>
       <div style="display:flex;gap:6px;" id="round-dots">
         <span onclick="goToStep(3)" style="width:14px;height:14px;border-radius:50%;background:#790ECB;display:inline-block;cursor:pointer;"></span>
@@ -552,7 +632,7 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       <div id="round-countdown-text" style="color:#c084fc;font-size:28px;font-weight:600;margin-top:16px;"></div>
       <div id="round-countdown-num" style="color:#790ECB;font-size:100px;font-weight:bold;text-shadow:0 0 30px rgba(121,14,203,0.6);"></div>
     </div>
-    <iframe id="game-iframe" style="width:100%;max-width:860px;height:75vh;border:2px solid #790ECB;border-radius:12px;background:#000;"></iframe>
+    <iframe id="game-iframe" style="width:100%;max-width:90vw;height:78vh;border:2px solid #790ECB;border-radius:12px;background:#000;"></iframe>
     <div class="btn-row" style="margin-top:12px;">
       <button class="btn btn-secondary" onclick="exitGame()">✕ Salir del juego</button>
     </div>
@@ -564,12 +644,12 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
       <div class="ghost-avatar" id="ghost-5" style="width:160px;height:160px;">
         <div class="ghost-body" style="font-size:130px;">👻</div>
       </div>
-      <div class="ghost-speech" style="max-width:600px;text-align:center;">
+      <div class="ghost-speech" style="max-width:800px;text-align:center;">
         <div class="ghost-speech-text" id="speech-5" style="font-size:20px;"></div>
       </div>
     </div>
 
-    <div class="content-area" id="content-5" style="max-width:600px;margin-top:20px;">
+    <div class="content-area" id="content-5" style="max-width:900px;margin-top:20px;">
       <div class="content-block" id="s5-b0">
         <div style="text-align:center;">
           <div style="font-size:64px;margin-bottom:10px;">🏆</div>
@@ -636,10 +716,10 @@ Make sure movement is grid-based and feels like classic Pac-Man with proper timi
           { speech: 'Ahora viene lo bueno. Con Kiro puedes crear aplicaciones completas usando solo un prompt en lenguaje natural.', blockId: 's2-b0' },
           { speech: 'Mira este ejemplo: un prompt para crear un juego estilo Pac-Man. Cópialo y pégalo en Kiro para verlo en acción.', blockId: 's2-b1' },
           { speech: 'Hoy hemos preparado 4 juegos arcade creados con Kiro para que los pruebes. ¿Tienes ganas de jugar?', blockId: 's2-b2' },
-          { speech: '¡Dale al botón y a competir por el ranking! La mejor puntuación al final del día del Summit de Madrid se llevará un premio.', blockId: 's2-b3' },
+          { speech: '¡Dale al botón y a competir por el ranking!', blockId: 's2-b3' },
         ],
         3: [
-          { speech: '¡Es hora de jugar! Elige un juego, tienes 3 rondas por partida. ¡A por el récord!', blockId: 's3-b0' },
+          { speech: '¡Es hora de jugar! Elige un juego, tienes 2 rondas por partida. ¡A por el récord!', blockId: 's3-b0' },
           { speech: 'Aquí puedes ver el ranking. ¿Podrás llegar al primer lugar?', blockId: 's3-b1' },
           { speech: '¡Buena suerte, gamer!', blockId: 's3-b3' },
         ],
