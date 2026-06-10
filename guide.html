@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiro Arcade — Guía / Guide</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      padding: 24px 36px;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(160deg, #0d0d1a 0%, #1a0a2e 100%);
+      z-index: -1;
+    }
+
+    /* Language toggle */
+    #lang-toggle {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      background: rgba(121,14,203,0.3);
+      color: #fff;
+      border: 1px solid #790ECB;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 100;
+      transition: background 0.2s;
+    }
+    #lang-toggle:hover { background: rgba(121,14,203,0.6); }
+
+    /* Panels */
+    .left-panel {
+      flex: 1;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .ghost-emoji {
+      font-size: 68px;
+      animation: ghostFloat 2s ease-in-out infinite;
+    }
+    @keyframes ghostFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .title { text-align: center; }
+    .title h1 {
+      font-size: 24px;
+      color: #790ECB;
+      text-shadow: 0 0 16px rgba(121,14,203,0.5);
+      margin-bottom: 4px;
+    }
+    .title p {
+      color: rgba(255,255,255,0.4);
+      font-size: 13px;
+    }
+
+    .instructions {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(121,14,203,0.25);
+      border-radius: 14px;
+      padding: 20px 22px;
+      width: 100%;
+    }
+    .instructions h2 {
+      font-size: 17px;
+      color: #c084fc;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .instruction-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      padding: 9px 12px;
+      background: rgba(121,14,203,0.06);
+      border: 1px solid rgba(121,14,203,0.15);
+      border-radius: 10px;
+    }
+    .instruction-item:last-child { margin-bottom: 0; }
+    .instruction-item .icon { font-size: 30px; flex-shrink: 0; }
+    .instruction-item .text {
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+      line-height: 1.5;
+    }
+    .instruction-item .text strong { color: #c084fc; }
+
+    .right-panel {
+      flex: 1;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tabs-section h2 {
+      font-size: 17px;
+      color: #c084fc;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .tab-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(121,14,203,0.2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      transition: all 0.2s;
+    }
+    .tab-card:hover {
+      border-color: #790ECB;
+      background: rgba(121,14,203,0.08);
+    }
+    .tab-card .tab-icon { font-size: 32px; flex-shrink: 0; }
+    .tab-card .tab-info h3 { font-size: 15px; color: #fff; margin-bottom: 2px; }
+    .tab-card .tab-info p { font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.4; }
+
+    .footer-note {
+      text-align: center;
+      color: rgba(255,255,255,0.3);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .footer-note a { color: #c084fc; text-decoration: none; }
+    .footer-note a:hover { text-decoration: underline; }
+
+    /* Bilingual toggle */
+    [data-lang="en"] { display: none; }
+    body.lang-en [data-lang="en"] { display: block; }
+    body.lang-en [data-lang="es"] { display: none; }
+    /* For inline elements inside flex */
+    span[data-lang="en"], strong[data-lang="en"] { display: none; }
+    body.lang-en span[data-lang="en"], body.lang-en strong[data-lang="en"] { display: inline; }
+    body.lang-en span[data-lang="es"], body.lang-en strong[data-lang="es"] { display: none; }
+  </style>
+</head>
+<body>
+
+  <button id="lang-toggle" onclick="toggleLang()">🇬🇧 English</button>
+
+  <!-- Left panel -->
+  <div class="left-panel">
+    <div class="ghost-emoji">👻</div>
+    <div class="title">
+      <h1>🎮 Kiro Arcade</h1>
+      <p data-lang="es">Guía rápida para jugar</p>
+      <p data-lang="en">Quick play guide</p>
+    </div>
+
+    <div class="instructions">
+      <h2 data-lang="es">🖐️ Controles con la mano</h2>
+      <h2 data-lang="en">🖐️ Hand controls</h2>
+
+      <div class="instruction-item">
+        <div class="icon">✋</div>
+        <div class="text">
+          <span data-lang="es"><strong>Mano abierta</strong> — Muestra la mano abierta frente a la cámara para empezar el juego.</span>
+          <span data-lang="en"><strong>Open hand</strong> — Show an open hand to the camera to start the game.</span>
+        </div>
+      </div>
+
+      <div class="instruction-item">
+        <div class="icon">✊</div>
+        <div class="text">
+          <span data-lang="es"><strong>Puño cerrado</strong> — Cierra el puño para realizar la acción del juego (saltar, cortar, esquivar).</span>
+          <span data-lang="en"><strong>Closed fist</strong> — Close your fist to perform the game action (jump, slice, dodge).</span>
+        </div>
+      </div>
+
+      <div class="instruction-item">
+        <div class="icon">🔄</div>
+        <div class="text">
+          <span data-lang="es"><strong>Abre y cierra</strong> — Alterna entre mano abierta y puño para controlar el juego.</span>
+          <span data-lang="en"><strong>Open & close</strong> — Alternate between open hand and fist to control the game.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="right-panel">
+    <div class="tabs-section">
+      <h2 data-lang="es">🖥️ En la pantalla de arriba</h2>
+      <h2 data-lang="en">🖥️ On the screen above</h2>
+
+      <div class="tab-card">
+        <div class="tab-icon">🎮</div>
+        <div class="tab-info">
+          <h3 data-lang="es">Pestaña 1 — El Juego</h3>
+          <h3 data-lang="en">Tab 1 — The Game</h3>
+          <p data-lang="es">La arcade con los juegos. Usa tu mano para jugar y competir por el ranking.</p>
+          <p data-lang="en">The arcade with the games. Use your hand to play and compete for the leaderboard.</p>
+        </div>
+      </div>
+
+      <div class="tab-card">
+        <div class="tab-icon">📖</div>
+        <div class="tab-info">
+          <h3 data-lang="es">Pestaña 2 — Demo Interactiva</h3>
+          <h3 data-lang="en">Tab 2 — Interactive Demo</h3>
+          <p data-lang="es">Click-through de Kiro IDE. Haz clic en los hotspots para recorrer las funcionalidades.</p>
+          <p data-lang="en">Kiro IDE click-through. Click the hotspots to explore the features.</p>
+        </div>
+      </div>
+
+      <div class="tab-card">
+        <div class="tab-icon">🌐</div>
+        <div class="tab-info">
+          <h3 data-lang="es">Pestaña 3 — kiro.dev</h3>
+          <h3 data-lang="en">Tab 3 — kiro.dev</h3>
+          <p data-lang="es">La web oficial de Kiro. Descarga el IDE, lee la documentación y explora.</p>
+          <p data-lang="en">Kiro's official website. Download the IDE, read the docs and explore.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      <p data-lang="es">¿No hay nadie presentando? Sigue la demo en la pestaña del click-through ↗</p>
+      <p data-lang="en">No one presenting? Follow the demo in the click-through tab ↗</p>
+      <p style="margin-top:6px;"><a href="https://app.storylane.io/share/q8d5uemj5kik" target="_blank">Demo interactiva</a> · <a href="https://kiro.dev" target="_blank">kiro.dev</a></p>
+    </div>
+  </div>
+
+  <script>
+    let currentLang = 'es';
+
+    function toggleLang() {
+      currentLang = currentLang === 'es' ? 'en' : 'es';
+      document.body.classList.toggle('lang-en', currentLang === 'en');
+      document.getElementById('lang-toggle').textContent = currentLang === 'es' ? '🇬🇧 English' : '🇪🇸 Español';
+    }
+  </script>
+
+</body>
+</html>
